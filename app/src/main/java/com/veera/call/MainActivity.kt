@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.telecom.TelecomManager
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -52,6 +54,7 @@ class MainActivity : AppCompatActivity() {
             if (!roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
                 val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
                 (this as Activity).startActivityForResult(intent, 100)
+                toast("role hase been requested")
             } else {
                 toast("this role are not receiver")
             }
@@ -108,6 +111,36 @@ class MainActivity : AppCompatActivity() {
         if (packageName == telecomManager.defaultDialerPackage) {
             Toast.makeText(this, "App is now the default dialer", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    fun isAutoStartEnabled(): Boolean {
+        return try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            powerManager.isIgnoringBatteryOptimizations(packageName)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun showVivoBatteryOptimizationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Battery Optimization")
+            .setMessage("Please disable battery optimization for this app")
+            .setPositiveButton("Open Settings") { _, _ ->
+                try {
+                    val intent = Intent().apply {
+                        setClassName(
+                            "com.vivo.abe",
+                            "com.vivo.applicationbehaviorengine.ui.ExcessivePowerManagerActivity"
+                        )
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                    startActivity(intent)
+                }
+            }
+            .show()
     }
 
 }
