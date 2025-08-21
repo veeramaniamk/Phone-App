@@ -1,4 +1,4 @@
-package com.veera.dialer
+package com.android.veera
 
 import org.junit.Test
 

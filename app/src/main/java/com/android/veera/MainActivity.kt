@@ -1,4 +1,4 @@
-package com.veera.dialer
+package com.android.veera
 
 import android.Manifest
 import android.app.Activity
@@ -17,8 +17,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.veera.android.dialer.databinding.ActivityMainBinding
-import com.veera.dialer.services.MyConnectionService
+import com.android.veera.services.MyConnectionService
+import com.veera.dialer.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 

@@ -1,9 +1,9 @@
-package com.veera.dialer.services
+package com.android.veera.services
 
 import android.content.Intent
 import android.telecom.Call
 import android.telecom.InCallService
-import com.veera.dialer.CallActivity
+import com.android.veera.CallActivity
 
 class MyInCallService : InCallService() {
     override fun onCallAdded(call: Call) {

@@ -26,7 +26,7 @@
 
         <!-- Call UI (exported = true, since InCallService launches it) -->
         <activity
-            android:name="com.veera.dialer.CallActivity"
+            android:name="com.android.veera.CallActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity="">
@@ -34,7 +34,7 @@
 
         <!-- MainActivity = Dialer Entry Point -->
         <activity
-            android:name="com.veera.dialer.MainActivity"
+            android:name="com.android.veera.MainActivity"
             android:exported="true"
             android:launchMode="singleTop">
             <intent-filter>
@@ -54,7 +54,7 @@
 
         <!-- Telecom Connection Service -->
         <service
-            android:name="com.veera.dialer.services.MyConnectionService"
+            android:name="com.android.veera.services.MyConnectionService"
             android:exported="true"
             android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
             <intent-filter>
@@ -64,7 +64,7 @@
 
         <!-- In-Call UI Service -->
         <service
-            android:name="com.veera.dialer.services.MyInCallService"
+            android:name="com.android.veera.services.MyInCallService"
             android:exported="true"
             android:permission="android.permission.BIND_INCALL_SERVICE">
             <meta-data
