@@ -20,6 +20,8 @@ import androidx.core.view.WindowInsetsCompat
 import com.android.veera.services.MyConnectionService
 import com.veera.dialer.databinding.ActivityMainBinding
 
+
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
