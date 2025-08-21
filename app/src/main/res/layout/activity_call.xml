@@ -4,23 +4,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
-    android:orientation="vertical"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
-
-    <EditText
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:inputType="number"
-        android:id="@+id/phoneNumberET"
-        android:hint="Enter Phone Number"/>
+    android:orientation="vertical"
+    tools:context=".CallActivity">
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:id="@+id/callB"
-        android:text="call"/>
+        android:id="@+id/endCall"
+        android:text="end"/>
 
 </LinearLayout>

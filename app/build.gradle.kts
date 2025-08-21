@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.veera.call"
+    namespace = "com.veera.android.dialer"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.veera.call"
+        applicationId = "com.veera.android.dialer"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
