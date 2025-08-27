@@ -1,7 +1,7 @@
 package com.android.veera.services
 
-import android.os.Handler
-import android.os.Looper
+import android.content.Context
+import android.media.AudioManager
 import android.telecom.Connection
 import android.telecom.ConnectionRequest
 import android.telecom.ConnectionService
@@ -10,39 +10,30 @@ import android.telecom.PhoneAccountHandle
 
 class MyConnectionService : ConnectionService() {
 
-    override fun onCreateOutgoingConnection(
-        connectionManagerPhoneAccount: PhoneAccountHandle?,
-        request: ConnectionRequest?
-    ): Connection {
-        val conn = MyConnection()
-        conn.setDialing()
-
-        // simulate call connected
-        Handler(Looper.getMainLooper()).postDelayed({
-            conn.setActive()
-        }, 2000)
-
-        return conn
-    }
-
     override fun onCreateIncomingConnection(
         connectionManagerPhoneAccount: PhoneAccountHandle?,
         request: ConnectionRequest?
     ): Connection {
-        val conn = MyConnection()
+        val conn = object : Connection() {
+            override fun onAnswer() {
+                super.onAnswer()
+                setActive()
+                enableSpeaker(true)
+            }
+
+            override fun onDisconnect() {
+                super.onDisconnect()
+                setDisconnected(DisconnectCause(DisconnectCause.LOCAL))
+                destroy()
+            }
+        }
         conn.setRinging()
         return conn
     }
-}
 
-class MyConnection : Connection() {
-    override fun onAnswer() {
-        setActive()
+    private fun enableSpeaker(enable: Boolean) {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.isSpeakerphoneOn = enable
     }
 
-    override fun onDisconnect() {
-        setDisconnected(DisconnectCause(DisconnectCause.LOCAL))
-        destroy()
-    }
 }
-

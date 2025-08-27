@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" /> <!-- For overlays if needed -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <queries>
         <intent>
@@ -40,7 +41,7 @@
 
         <!-- Call UI (exported = true, since InCallService launches it) -->
         <activity
-            android:name="com.android.veera.CallActivity"
+            android:name="com.android.veera.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity="">
@@ -48,7 +49,7 @@
 
         <!-- MainActivity = Dialer Entry Point -->
         <activity
-            android:name="com.android.veera.MainActivity"
+            android:name="com.android.veera.CallActivity"
             android:exported="true"
             android:launchMode="singleTop"
             >
@@ -96,4 +97,5 @@
         </service>
 
     </application>
+
 </manifest>
