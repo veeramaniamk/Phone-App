@@ -58,5 +58,7 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.material3)
-
+    implementation("androidx.compose.ui:ui-tooling-preview:1.9.2")
+    // ✅ For runtime previews in Android Studio
+    debugImplementation("androidx.compose.ui:ui-tooling:1.9.2")
 }

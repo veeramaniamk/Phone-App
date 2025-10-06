@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -79,6 +80,21 @@ class MainActivity : ComponentActivity() {
         audioManager.isMicrophoneMute = !audioManager.isMicrophoneMute
     }
 
+}
+
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    name = "Phone Call UI Preview"
+)
+@Composable
+fun PreviewPhoneCallUI() {
+    PhoneCallUI(
+        onAnswer = {},
+        onReject = {},
+        onToggleSpeaker = {},
+        onToggleMic = {}
+    )
 }
 
 @Composable
