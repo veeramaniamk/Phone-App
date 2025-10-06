@@ -39,20 +39,12 @@
         android:theme="@style/Theme.Call"
         tools:targetApi="31">
 
-        <!-- Call UI (exported = true, since InCallService launches it) -->
         <activity
             android:name="com.android.veera.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity="">
-        </activity>
 
-        <!-- MainActivity = Dialer Entry Point -->
-        <activity
-            android:name="com.android.veera.CallActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -61,40 +53,8 @@
                 <action android:name="android.intent.action.DIAL" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            <!-- Add this new intent-filter for default dialer -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <data android:scheme="http" />
-                <data android:scheme="https" />
-                <action android:name="android.intent.action.DIAL" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="tel" />
-            </intent-filter>
+
         </activity>
-
-        <!-- Telecom Connection Service -->
-        <service
-            android:name="com.android.veera.services.MyConnectionService"
-            android:exported="true"
-            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
-            <intent-filter>
-                <action android:name="android.telecom.ConnectionService" />
-            </intent-filter>
-        </service>
-
-        <!-- In-Call UI Service -->
-        <service
-            android:name="com.android.veera.services.MyInCallService"
-            android:exported="true"
-            android:permission="android.permission.BIND_INCALL_SERVICE">
-            <meta-data
-                android:name="android.telecom.IN_CALL_SERVICE_UI"
-                android:value="true" />
-            <intent-filter>
-                <action android:name="android.telecom.InCallService" />
-            </intent-filter>
-        </service>
 
     </application>
 
