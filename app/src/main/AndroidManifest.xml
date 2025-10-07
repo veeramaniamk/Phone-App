@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
     <!-- Required Features & Permissions -->
-    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
 
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
@@ -19,12 +20,15 @@
     <queries>
         <intent>
             <action android:name="android.intent.action.CALL" />
+
             <data android:scheme="tel" />
         </intent>
         <intent>
             <action android:name="android.intent.action.DIAL" />
+
             <data android:scheme="tel" />
         </intent>
+
         <package android:name="com.android.server.telecom" />
     </queries>
 
@@ -39,29 +43,44 @@
         android:theme="@style/Theme.Call"
         tools:targetApi="31">
 
+        <activity android:name="com.android.veera.IncomingCallActivity"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.TransparentDialog"
+            android:taskAffinity=""
+            android:exported="false"
+            />
+
         <activity
             android:name="com.android.veera.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity="">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
+
                 <action android:name="android.intent.action.DIAL" />
+
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <!-- Add this new intent-filter for default dialer -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
+
                 <data android:scheme="http" />
                 <data android:scheme="https" />
+
                 <action android:name="android.intent.action.DIAL" />
+
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+
                 <data android:scheme="tel" />
             </intent-filter>
-
         </activity>
 
         <receiver
@@ -72,7 +91,6 @@
                 <action android:name="android.intent.action.PHONE_STATE" />
             </intent-filter>
         </receiver>
-
     </application>
 
 </manifest>

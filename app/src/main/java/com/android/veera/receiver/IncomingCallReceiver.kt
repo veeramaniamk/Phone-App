@@ -6,6 +6,7 @@ import android.content.Intent
 import android.telephony.TelephonyManager
 import android.widget.Toast
 import android.util.Log
+import com.android.veera.IncomingCallActivity
 
 class IncomingCallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -18,10 +19,11 @@ class IncomingCallReceiver : BroadcastReceiver() {
                     Log.d("IncomingCallReceiver", "Incoming call from: $incomingNumber")
                     Toast.makeText(context, "Incoming call: $incomingNumber", Toast.LENGTH_SHORT).show()
 
-                    // Optionally start your activity to show UI
-                    val callIntent = Intent(context, Class.forName("com.example.phoneapp.MainActivity"))
-                    callIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                    context?.startActivity(callIntent)
+                    val dialogIntent = Intent(context, IncomingCallActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        putExtra("incoming_number", incomingNumber)
+                    }
+                    context?.startActivity(dialogIntent)
                 }
 
                 TelephonyManager.EXTRA_STATE_OFFHOOK -> {
