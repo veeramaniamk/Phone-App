@@ -61,4 +61,6 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview:1.9.2")
     // ✅ For runtime previews in Android Studio
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.2")
+    // Optional – for live preview of animations
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.9.2")
 }
