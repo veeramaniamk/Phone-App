@@ -123,4 +123,7 @@ class IncomingCallActivity : ComponentActivity() {
         }
     }
 
+
+    //nothing
+
 }
