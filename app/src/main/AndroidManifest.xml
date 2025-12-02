@@ -34,6 +34,7 @@
 
     <application
         android:allowBackup="true"
+        android:name="com.android.veera.app.App"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -42,16 +43,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Call"
         tools:targetApi="31">
-
-        <activity android:name="com.android.veera.IncomingCallActivity"
-            android:launchMode="singleTop"
-            android:excludeFromRecents="true"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:theme="@style/Theme.TransparentDialog"
-            android:taskAffinity=""
-            android:exported="false"
-            />
 
         <activity
             android:name="com.android.veera.MainActivity"
@@ -83,14 +74,6 @@
             </intent-filter>
         </activity>
 
-        <receiver
-            android:name="com.android.veera.receiver.IncomingCallReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.NEW_OUTGOING_CALL" />
-                <action android:name="android.intent.action.PHONE_STATE" />
-            </intent-filter>
-        </receiver>
     </application>
 
 </manifest>
