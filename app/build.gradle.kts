@@ -2,12 +2,12 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.dagger.hilt.android")
+    alias(libs.plugins.hilt.android)
     kotlin("kapt")
 }
 
 android {
-    namespace = "com.veera.dialer"
+    namespace = "com.android.veera"
     compileSdk = 35
 
     defaultConfig {
@@ -68,8 +68,12 @@ dependencies {
     // Optional – for live preview of animations
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.9.2")
 
+    // Project Modules
+    implementation(project(":core"))
+    implementation(project(":feature:splash"))
+
     // Hilt
-    implementation("com.google.dagger:hilt-android:2.52")
-    kapt("com.google.dagger:hilt-compiler:2.52")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
 }

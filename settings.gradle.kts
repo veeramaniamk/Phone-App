@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Call"
 include(":app")
- 
+include(":core")
+include(":feature:splash")
