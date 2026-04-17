@@ -5,30 +5,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-
-val Primary = Color(0xFF64B5F6)
-val PrimaryDark = Color(0xFF1976D2)
-val Background = Color(0xFF0D1B2A)
-val Surface = Color(0xFF1B263B)
-
-val ButtonGradientStart = Color(0xFF4B61D1)
-val ButtonGradientEnd = Color(0xFF7B8CFE)
-val TextSecondary = Color(0xFF7B8CFE)
-val IllustrationBlue = Color(0xFF46C2E2)
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Primary,
-    secondary = Color(0xFF415A77),
-    tertiary = Color(0xFF778DA9),
-    background = Background,
-    surface = Surface
+    primary = AppColors.Primary,
+    onPrimary = AppColors.DarkBackground,
+    secondary = AppColors.Secondary,
+    tertiary = AppColors.Tertiary,
+    background = AppColors.DarkBackground,
+    surface = AppColors.DarkSurface,
+    onBackground = AppColors.DarkOnBackground,
+    onSurface = AppColors.DarkOnSurface,
+    error = AppColors.Error
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Primary,
-    secondary = Color(0xFF415A77),
-    tertiary = Color(0xFF778DA9)
+    primary = AppColors.Primary,
+    onPrimary = AppColors.LightBackground,
+    secondary = AppColors.Secondary,
+    tertiary = AppColors.Tertiary,
+    background = AppColors.LightBackground,
+    surface = AppColors.LightSurface,
+    onBackground = AppColors.LightOnBackground,
+    onSurface = AppColors.LightOnSurface,
+    error = AppColors.Error
 )
 
 @Composable
@@ -37,9 +38,49 @@ fun DialerTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val configuration = LocalConfiguration.current
+    
+    // Determine screen size class based on width and height
+    val screenWidth = configuration.screenWidthDp
+    val screenHeight = configuration.screenHeightDp
+    
+    val isSmallHeight = screenHeight < 480
+    
+    val dimensions = when {
+        screenWidth < 600 -> if (isSmallHeight) CompactDimensions.copy(paddingMedium = 4.dp, paddingLarge = 8.dp) else CompactDimensions
+        screenWidth < 840 -> MediumDimensions
+        else -> ExpandedDimensions
+    }
+    
+    val typography = when {
+        screenWidth < 600 -> CompactTypography
+        screenWidth < 840 -> MediumTypography
+        else -> ExpandedTypography
+    }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalAppDimensions provides dimensions,
+        LocalAppTypography provides typography
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = typography.toMaterial3(),
+            content = content
+        )
+    }
+}
+
+/**
+ * Helper object to access the current theme properties
+ */
+object AppTheme {
+    val dimensions: AppDimensions
+        @Composable
+        get() = LocalAppDimensions.current
+        
+    val typography: AppTypography
+        @Composable
+        get() = LocalAppTypography.current
+        
+    val colors = AppColors
 }

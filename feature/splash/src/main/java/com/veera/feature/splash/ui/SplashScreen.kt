@@ -19,6 +19,8 @@ import kotlinx.coroutines.delay
 
 import androidx.hilt.navigation.compose.hiltViewModel
 
+import com.veera.core.theme.AppTheme
+
 @Composable
 fun SplashScreen(
     viewModel: SplashViewModel = hiltViewModel(),
@@ -36,8 +38,8 @@ fun SplashScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF1B263B),
-                        Color(0xFF0D1B2A)
+                        AppTheme.colors.DarkSurface,
+                        AppTheme.colors.DarkBackground
                     )
                 )
             ),
@@ -50,8 +52,8 @@ fun SplashScreen(
             // Icon Container
             Surface(
                 modifier = Modifier.size(120.dp),
-                shape = RoundedCornerShape(32.dp),
-                color = Color(0xFF7B8CFE).copy(alpha = 0.8f)
+                shape = RoundedCornerShape(AppTheme.dimensions.cornerExtraLarge),
+                color = AppTheme.colors.ButtonGradientEnd.copy(alpha = 0.8f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -63,20 +65,21 @@ fun SplashScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(AppTheme.dimensions.paddingLarge))
 
             Text(
                 text = "Phone",
-                style = MaterialTheme.typography.displaySmall.copy(
+                style = AppTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color.White,
+                    fontSize = 32.sp // Keeping logo text large
                 )
             )
 
             Text(
                 text = "— LUMINOUS CONCIERGE —",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    color = Color(0xFF7B8CFE),
+                style = AppTheme.typography.labelMedium.copy(
+                    color = AppTheme.colors.TextSecondary,
                     letterSpacing = 2.sp
                 )
             )
@@ -86,22 +89,22 @@ fun SplashScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp),
+                .padding(bottom = AppTheme.dimensions.paddingExtraLarge),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             LinearProgressIndicator(
                 modifier = Modifier
                     .width(200.dp)
                     .height(4.dp),
-                color = Color(0xFF7B8CFE),
+                color = AppTheme.colors.Primary,
                 trackColor = Color.White.copy(alpha = 0.1f)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(AppTheme.dimensions.paddingLarge))
 
             Text(
                 text = "VERSION 4.0.2 • SECURE CONNECTION",
-                style = MaterialTheme.typography.labelSmall.copy(
+                style = AppTheme.typography.labelMedium.copy(
                     color = Color.White.copy(alpha = 0.5f)
                 )
             )

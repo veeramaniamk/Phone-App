@@ -24,10 +24,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.veera.core.theme.ButtonGradientEnd
-import com.veera.core.theme.ButtonGradientStart
-import com.veera.core.theme.IllustrationBlue
-import com.veera.core.theme.TextSecondary
+import com.veera.core.theme.AppColors.ButtonGradientEnd
+import com.veera.core.theme.AppColors.ButtonGradientStart
+import com.veera.core.theme.AppColors.IllustrationBlue
+import com.veera.core.theme.AppColors.TextSecondary
 
 @Composable
 fun DefaultDialerScreen(
@@ -53,6 +53,7 @@ fun DefaultDialerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .systemBarsPadding()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
