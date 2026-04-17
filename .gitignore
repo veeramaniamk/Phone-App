@@ -9,5 +9,6 @@
 .cxx
 local.properties
 /core/build
+/core/telephony/build
 /feature/onboarding/build
 /feature/splash/build
