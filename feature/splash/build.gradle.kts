@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
-    kotlin("kapt")
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -37,6 +37,11 @@ android {
     }
 }
 
+hilt {
+    enableAggregatingTask = false
+}
+
+
 dependencies {
     implementation(project(":core"))
     implementation(libs.androidx.core.ktx)
@@ -46,5 +51,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
-    kapt(libs.hilt.compiler)
+    ksp(libs.hilt.compiler)
+    implementation(libs.kotlinx.coroutines.android)
 }

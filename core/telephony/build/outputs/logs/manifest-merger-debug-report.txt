@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml:2:13-83
+INJECTED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml:2:13-83
+	package
+		INJECTED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml
+	xmlns:android
+		ADDED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml:2:23-81
+uses-sdk
+INJECTED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml reason: use-sdk injection requested
+INJECTED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml
+INJECTED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml
+	android:targetSdkVersion
+		INJECTED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml
+	android:minSdkVersion
+		INJECTED from A:\Android Studio Projects\Call\core\telephony\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest18273850127778520615.xml

@@ -12,6 +12,11 @@ val PrimaryDark = Color(0xFF1976D2)
 val Background = Color(0xFF0D1B2A)
 val Surface = Color(0xFF1B263B)
 
+val ButtonGradientStart = Color(0xFF4B61D1)
+val ButtonGradientEnd = Color(0xFF7B8CFE)
+val TextSecondary = Color(0xFF7B8CFE)
+val IllustrationBlue = Color(0xFF46C2E2)
+
 private val DarkColorScheme = darkColorScheme(
     primary = Primary,
     secondary = Color(0xFF415A77),

@@ -72,7 +72,7 @@
 
         <!-- The InCallService is mandatory for being the default phone app since Android 10+ -->
         <service
-            android:name="com.android.veera.service.CallService"
+            android:name="com.veera.core.telephony.service.AppCallService"
             android:permission="android.permission.BIND_INCALL_SERVICE"
             android:exported="true">
             <meta-data

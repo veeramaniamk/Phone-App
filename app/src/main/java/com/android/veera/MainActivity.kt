@@ -19,33 +19,64 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.veera.core.theme.DialerTheme
+import com.veera.core.util.DialerManager
+import com.veera.feature.onboarding.ui.DefaultDialerScreen
 import com.veera.feature.splash.ui.SplashScreen
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var dialerManager: DialerManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             DialerTheme {
-                var showSplash by remember { mutableStateOf(true) }
+                var currentScreen by remember { mutableStateOf<Screen>(Screen.Splash) }
 
-                if (showSplash) {
-                    SplashScreen(
-                        onSplashComplete = { showSplash = false }
-                    )
-                } else {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        DialerScreen()
+                when (currentScreen) {
+                    Screen.Splash -> {
+                        SplashScreen(
+                            onSplashComplete = {
+                                currentScreen = if (dialerManager.isDefaultDialer()) {
+                                    Screen.Home
+                                } else {
+                                    Screen.Onboarding
+                                }
+                            }
+                        )
+                    }
+                    Screen.Onboarding -> {
+                        DefaultDialerScreen(
+                            onComplete = {
+                                currentScreen = Screen.Home
+                            },
+                            onExit = {
+                                finish()
+                            }
+                        )
+                    }
+                    Screen.Home -> {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.background
+                        ) {
+                            DialerScreen()
+                        }
                     }
                 }
             }
         }
     }
+}
+
+sealed class Screen {
+    object Splash : Screen()
+    object Onboarding : Screen()
+    object Home : Screen()
 }
 
 @Composable

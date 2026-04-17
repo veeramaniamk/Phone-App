@@ -8,3 +8,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+/core/build
+/feature/onboarding/build
+/feature/splash/build
