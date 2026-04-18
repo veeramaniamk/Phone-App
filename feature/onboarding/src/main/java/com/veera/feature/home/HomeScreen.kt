@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
 import com.veera.feature.dialpad.ui.DialpadScreen
+import com.veera.feature.ongoing.ui.OngoingCallScreen
 
 data class RecentCall(
     val id: String,
@@ -46,6 +47,8 @@ enum class CallType {
     INCOMING, OUTGOING, MISSED
 }
 
+data class CallInfo(val name: String, val number: String)
+
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun HomeScreen(
@@ -55,6 +58,7 @@ fun HomeScreen(
     onDialpadCall: (String) -> Unit = {}
 ) {
     var isDialpadVisible by remember { mutableStateOf(false) }
+    var ongoingCall by remember { mutableStateOf<CallInfo?>(null) }
 
     DialerTheme(darkTheme = isDarkModeEnabled) {
         var visible by remember { mutableStateOf(false) }
@@ -107,7 +111,10 @@ fun HomeScreen(
                             horizontalPadding = horizontalPadding,
                             itemHeight = itemHeight,
                             avatarSize = avatarSize,
-                            onCallClick = onCallClick
+                            onCallClick = { call ->
+                                ongoingCall = CallInfo(call.name, call.number)
+                                onCallClick(call)
+                            }
                         )
                     }
 
@@ -124,6 +131,7 @@ fun HomeScreen(
                                 onDismiss = { isDialpadVisible = false },
                                 onCallClick = { number ->
                                     isDialpadVisible = false
+                                    ongoingCall = CallInfo("Unknown", number)
                                     onDialpadCall(number)
                                 }
                             )
@@ -131,6 +139,23 @@ fun HomeScreen(
                         
                         BackHandler {
                             isDialpadVisible = false
+                        }
+                    }
+
+                    // Overlay Ongoing Call
+                    AnimatedVisibility(
+                        visible = ongoingCall != null,
+                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        ongoingCall?.let { info ->
+                            OngoingCallScreen(
+                                name = info.name,
+                                number = info.number,
+                                isDarkModeEnabled = isDarkModeEnabled,
+                                onEndCall = { ongoingCall = null }
+                            )
                         }
                     }
                 }
