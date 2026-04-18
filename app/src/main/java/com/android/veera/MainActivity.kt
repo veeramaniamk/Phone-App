@@ -6,12 +6,18 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.veera.core.theme.DialerTheme
 import com.veera.core.util.DialerManager
+import com.veera.feature.contact.ui.ContactScreen
 import com.veera.feature.home.HomeScreen
 import com.veera.feature.onboarding.ui.DefaultDialerScreen
 import com.veera.feature.splash.ui.SplashScreen
@@ -43,10 +49,9 @@ class MainActivity : ComponentActivity() {
                             SplashScreen(
                                 onSplashComplete = {
                                     currentScreen = if (dialerManager.isDefaultDialer()) {
-                                        Screen.Home
+                                        Screen.MainContainer
                                     } else {
-//                                        Screen.Onboarding
-                                        Screen.Home
+                                        Screen.MainContainer
                                     }
                                 }
                             )
@@ -54,19 +59,17 @@ class MainActivity : ComponentActivity() {
                         Screen.Onboarding -> {
                             DefaultDialerScreen(
                                 onComplete = {
-                                    currentScreen = Screen.Home
+                                    currentScreen = Screen.MainContainer
                                 },
                                 onExit = {
                                     finish()
                                 }
                             )
                         }
-                        Screen.Home -> {
-                            HomeScreen(
-                                onCallClick = { /* Handle call action */ },
-                                onDialpadCall = { /* Open dialpad */ }
-                            )
+                        Screen.MainContainer -> {
+                            MainContainer()
                         }
+                        else -> {}
                     }
                 }
             }
@@ -74,14 +77,72 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun PreviewHomeScreen() {
-    HomeScreen()
+fun MainContainer() {
+    var currentTab by remember { mutableStateOf(BottomTab.Recents) }
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
+                BottomTab.entries.forEach { tab ->
+                    NavigationBarItem(
+                        selected = currentTab == tab,
+                        onClick = { currentTab = tab },
+                        icon = { Icon(tab.icon, contentDescription = tab.title) },
+                        label = { Text(tab.title) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        )
+                    )
+                }
+            }
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            AnimatedContent(
+                targetState = currentTab,
+                transitionSpec = {
+                    if (targetState.ordinal > initialState.ordinal) {
+                        slideInHorizontally { it } + fadeIn() togetherWith
+                                slideOutHorizontally { -it } + fadeOut()
+                    } else {
+                        slideInHorizontally { -it } + fadeIn() togetherWith
+                                slideOutHorizontally { it } + fadeOut()
+                    }.using(SizeTransform(clip = false))
+                },
+                label = "TabTransition"
+            ) { tab ->
+                when (tab) {
+                    BottomTab.Recents -> HomeScreen()
+                    BottomTab.Contacts -> ContactScreen()
+                }
+            }
+        }
+    }
+}
+
+enum class BottomTab(val title: String, val icon: ImageVector) {
+    Recents("Recents", Icons.Default.History),
+    Contacts("Contacts", Icons.Default.Contacts)
 }
 
 sealed class Screen {
     object Splash : Screen()
     object Onboarding : Screen()
+    object MainContainer : Screen()
+    @Deprecated("Use MainContainer")
     object Home : Screen()
+}
+
+@Preview
+@Composable
+fun Prev() {
+    ContactScreen()
 }
