@@ -21,4 +21,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Call"
 include(":app")
- 
+include(":core")
+include(":feature:splash")
+include(":feature:onboarding")
+include(":core:telephony")
