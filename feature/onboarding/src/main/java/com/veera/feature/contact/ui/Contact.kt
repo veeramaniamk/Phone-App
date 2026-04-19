@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
+import com.veera.feature.contact_detail.ui.ContactDetailScreen
 import com.veera.feature.new_contact.ui.NewContactScreen
 
 data class ContactEntry(
@@ -42,6 +43,7 @@ fun ContactScreen(
     onContactClick: (ContactEntry) -> Unit = {}
 ) {
     var showNewContact by remember { mutableStateOf(false) }
+    var selectedContact by remember { mutableStateOf<ContactEntry?>(null) }
 
     DialerTheme(darkTheme = isDarkModeEnabled) {
         var visible by remember { mutableStateOf(false) }
@@ -84,7 +86,10 @@ fun ContactScreen(
                         horizontalPadding = horizontalPadding,
                         itemHeight = itemHeight,
                         avatarSize = avatarSize,
-                        onContactClick = onContactClick
+                        onContactClick = { contact ->
+                            selectedContact = contact
+                            onContactClick(contact)
+                        }
                     )
                 }
             }
@@ -94,9 +99,17 @@ fun ContactScreen(
                 NewContactScreen(
                     onDismiss = { showNewContact = false },
                     onSave = { first, last, phone ->
-                        // Logic to save contact
                         showNewContact = false
                     },
+                    isDarkModeEnabled = isDarkModeEnabled
+                )
+            }
+
+            // Contact Detail Screen Overlay
+            selectedContact?.let { contact ->
+                ContactDetailScreen(
+                    contact = contact,
+                    onBackClick = { selectedContact = null },
                     isDarkModeEnabled = isDarkModeEnabled
                 )
             }
