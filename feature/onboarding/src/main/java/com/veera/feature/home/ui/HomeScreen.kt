@@ -30,6 +30,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
+import com.veera.core.util.DialerManager
 import com.veera.feature.dialpad.ui.DialpadScreen
 import com.veera.feature.home.HomeViewModel
 import com.veera.feature.ongoing.ui.OngoingCallScreen
@@ -210,26 +211,10 @@ fun HomeScreen(
                         }
                     }
 
-                    // Global overlays (Ongoing Call and Search BackHandler)
+                    // Global overlays (Search BackHandler)
                     BackHandler(enabled = isSearchActive && !isDialpadVisible) {
                         isSearchActive = false
                         viewModel.onSearchQueryChanged("")
-                    }
-
-                    AnimatedVisibility(
-                        visible = ongoingCall != null,
-                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        ongoingCall?.let { info ->
-                            OngoingCallScreen(
-                                name = info.name,
-                                number = info.number,
-                                isDarkModeEnabled = isDarkModeEnabled,
-                                onEndCall = { ongoingCall = null }
-                            )
-                        }
                     }
                 }
             }

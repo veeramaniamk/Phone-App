@@ -1,8 +1,12 @@
 package com.android.veera
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.telecom.Call
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
@@ -13,13 +17,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
 import com.veera.core.theme.DialerTheme
 import com.veera.core.util.DialerManager
 import com.veera.feature.contact.ui.ContactScreen
 import com.veera.feature.home.ui.HomeScreen
 import com.veera.feature.onboarding.ui.DefaultDialerScreen
 import com.veera.feature.splash.ui.SplashScreen
+import com.veera.feature.ongoing.ui.OngoingCallScreen
+import com.veera.feature.incommingcall.ui.IncomingCallScreen
+import com.veera.core.telephony.viewmodel.CallViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -28,47 +37,90 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var dialerManager: DialerManager
+    
+    private val callViewModel: CallViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             DialerTheme {
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Splash) }
+                val callState by callViewModel.callState.collectAsState()
+                val callerName by callViewModel.callerName.collectAsState()
+                val callerNumber by callViewModel.callerNumber.collectAsState()
+                val context = LocalContext.current
 
-                AnimatedContent(
-                    targetState = currentScreen,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(500)) togetherWith
-                                fadeOut(animationSpec = tween(500))
-                    },
-                    label = "ScreenTransition"
-                ) { screen ->
-                    when (screen) {
-                        Screen.Splash -> {
-                            SplashScreen(
-                                onSplashComplete = {
-                                    currentScreen = if (dialerManager.isDefaultDialer()) {
-                                        Screen.MainContainer
-                                    } else {
-                                        Screen.Onboarding
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AnimatedContent(
+                        targetState = currentScreen,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(500)) togetherWith
+                                    fadeOut(animationSpec = tween(500))
+                        },
+                        label = "ScreenTransition"
+                    ) { screen ->
+                        when (screen) {
+                            Screen.Splash -> {
+                                SplashScreen(
+                                    onSplashComplete = {
+                                        currentScreen = if (dialerManager.isDefaultDialer()) {
+                                            Screen.MainContainer
+                                        } else {
+                                            Screen.Onboarding
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
+                            Screen.Onboarding -> {
+                                DefaultDialerScreen(
+                                    onComplete = {
+                                        currentScreen = Screen.MainContainer
+                                    },
+                                    onExit = {
+                                        finish()
+                                    }
+                                )
+                            }
+                            Screen.MainContainer -> {
+                                MainContainer(
+                                    onCallClick = { number -> if (ActivityCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.CALL_PHONE
+                                        ) != PackageManager.PERMISSION_GRANTED
+                                    ) {
+
+                                        return@MainContainer
+                                    }
+                                        callViewModel.makeCall(number)
+                                    }
+                                )
+                            }
                         }
-                        Screen.Onboarding -> {
-                            DefaultDialerScreen(
-                                onComplete = {
-                                    currentScreen = Screen.MainContainer
-                                },
-                                onExit = {
-                                    finish()
-                                }
-                            )
+                    }
+
+                    // Global Call Screens Overlay
+                    AnimatedVisibility(
+                        visible = callState != Call.STATE_DISCONNECTED,
+                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                    ) {
+                        when (callState) {
+                            Call.STATE_RINGING -> {
+                                IncomingCallScreen(
+                                    name = callerName,
+                                    number = callerNumber,
+                                    onAccept = { callViewModel.answerCall() },
+                                    onDecline = { callViewModel.rejectCall() }
+                                )
+                            }
+                            Call.STATE_ACTIVE, Call.STATE_DIALING, Call.STATE_CONNECTING -> {
+                                OngoingCallScreen(
+                                    name = callerName,
+                                    number = callerNumber,
+                                    onEndCall = { callViewModel.disconnectCall() }
+                                )
+                            }
                         }
-                        Screen.MainContainer -> {
-                            MainContainer()
-                        }
-                        else -> {}
                     }
                 }
             }
@@ -77,7 +129,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainContainer() {
+fun MainContainer(onCallClick: (String) -> Unit) {
     var currentTab by remember { mutableStateOf(BottomTab.Recents) }
 
     Scaffold(
@@ -119,7 +171,10 @@ fun MainContainer() {
                 label = "TabTransition"
             ) { tab ->
                 when (tab) {
-                    BottomTab.Recents -> HomeScreen()
+                    BottomTab.Recents -> HomeScreen(
+                        onCallClick = { call -> onCallClick(call.number) },
+                        onDialpadCall = { number -> onCallClick(number) }
+                    )
                     BottomTab.Contacts -> ContactScreen()
                 }
             }
@@ -136,7 +191,4 @@ sealed class Screen {
     object Splash : Screen()
     object Onboarding : Screen()
     object MainContainer : Screen()
-    @Deprecated("Use MainContainer")
-    object Home : Screen()
 }
-
