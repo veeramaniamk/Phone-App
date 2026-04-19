@@ -64,11 +64,16 @@ class HomeViewModel @Inject constructor(
                 val mappedData = nextPageData.map { it.toRecentCall() }
                 allRecents.addAll(mappedData)
                 page++
-                currentPage.value = page
             }
             isLoading.value = false
             isInitialLoading.value = false
             updateMetrics()
+        }
+    }
+
+    fun updateCurrentPage(newPage: Int) {
+        if (currentPage.value != newPage) {
+            currentPage.value = newPage
         }
     }
 

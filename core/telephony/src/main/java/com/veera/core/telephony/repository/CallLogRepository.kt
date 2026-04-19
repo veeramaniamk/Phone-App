@@ -19,6 +19,12 @@ data class CallLogEntry(
     val duration: Long
 )
 
+data class DialpadSuggestion(
+    val name: String,
+    val number: String,
+    val source: String // "Recent" or "Contact"
+)
+
 @Singleton
 class CallLogRepository @Inject constructor(
     @ApplicationContext private val context: Context
@@ -139,6 +145,74 @@ class CallLogRepository @Inject constructor(
             e.printStackTrace()
         }
         count
+    }
+
+    suspend fun getDialpadSuggestions(query: String, page: Int, pageSize: Int): List<DialpadSuggestion> = withContext(Dispatchers.IO) {
+        val suggestions = mutableListOf<DialpadSuggestion>()
+        if (query.isEmpty()) return@withContext emptyList()
+
+        // 1. Search in Recent Calls
+        val recentProjection = arrayOf(
+            CallLog.Calls.CACHED_NAME,
+            CallLog.Calls.NUMBER
+        )
+        val recentSelection = "${CallLog.Calls.NUMBER} LIKE ?"
+        val recentArgs = arrayOf("%$query%")
+        
+        try {
+            context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                recentProjection,
+                recentSelection,
+                recentArgs,
+                "${CallLog.Calls.DATE} DESC"
+            )?.use { cursor ->
+                val startIndex = page * pageSize
+                if (cursor.moveToPosition(startIndex)) {
+                    var count = 0
+                    do {
+                        val number = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
+                        var name = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME))
+                        if (name.isNullOrEmpty()) name = getContactName(number)
+                        
+                        suggestions.add(DialpadSuggestion(name ?: number, number, "Recent"))
+                        count++
+                    } while (cursor.moveToNext() && count < pageSize)
+                }
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+
+        // 2. Search in Contacts (if suggestions from recents are not enough)
+        if (suggestions.size < pageSize) {
+            val contactProjection = arrayOf(
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+            )
+            val contactSelection = "${ContactsContract.CommonDataKinds.Phone.NUMBER} LIKE ? OR ${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?"
+            val contactArgs = arrayOf("%$query%", "%$query%")
+            
+            try {
+                context.contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    contactProjection,
+                    contactSelection,
+                    contactArgs,
+                    null
+                )?.use { cursor ->
+                    while (cursor.moveToNext() && suggestions.size < (page + 1) * pageSize) {
+                        val name = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME))
+                        val number = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER))
+                        
+                        // Avoid duplicates
+                        if (suggestions.none { it.number == number }) {
+                            suggestions.add(DialpadSuggestion(name, number, "Contact"))
+                        }
+                    }
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        suggestions.distinctBy { it.number }
     }
 
     private fun getContactName(phoneNumber: String): String? {

@@ -23,9 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -119,74 +117,20 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    Scaffold(
-                        topBar = {
-                            AnimatedContent(
-                                targetState = isSearchActive,
-                                transitionSpec = {
-                                    if (targetState) {
-                                        slideInVertically { -it } + fadeIn() togetherWith slideOutVertically { it } + fadeOut()
-                                    } else {
-                                        slideInVertically { it } + fadeIn() togetherWith slideOutVertically { -it } + fadeOut()
-                                    }
-                                },
-                                label = "TopBarTransition"
-                            ) { active ->
-                                if (active) {
-                                    SearchHeader(
-                                        query = viewModel.searchQuery.value,
-                                        onQueryChange = { viewModel.onSearchQueryChanged(it) },
-                                        onBackClick = { 
-                                            isSearchActive = false
-                                            viewModel.onSearchQueryChanged("")
-                                        },
-                                        padding = horizontalPadding
-                                    )
-                                } else {
-                                    HomeHeader(
-                                        titleSize = titleSize,
-                                        padding = horizontalPadding,
-                                        totalCount = viewModel.totalItemCount.value,
-                                        currentPage = viewModel.currentPage.value,
-                                        pageSize = viewModel.pageSize,
-                                        onSearchClick = { isSearchActive = true }
-                                    )
-                                }
-                            }
+                    AnimatedContent(
+                        targetState = isDialpadVisible,
+                        transitionSpec = {
+                            if (targetState) {
+                                slideInHorizontally { it } + fadeIn() togetherWith 
+                                slideOutHorizontally { -it/2 } + fadeOut()
+                            } else {
+                                slideInHorizontally { -it/2 } + fadeIn() togetherWith 
+                                slideOutHorizontally { it } + fadeOut()
+                            }.using(SizeTransform(clip = false))
                         },
-                        floatingActionButton = {
-                            if (!isSearchActive) {
-                                DialerFab(
-                                    size = fabSize,
-                                    onClick = { isDialpadVisible = true }
-                                )
-                            }
-                        },
-                        containerColor = Color.Transparent
-                    ) { paddingValues ->
-                        RecentCallsList(
-                            modifier = Modifier.padding(paddingValues),
-                            horizontalPadding = horizontalPadding,
-                            itemHeight = itemHeight,
-                            avatarSize = avatarSize,
-                            viewModel = viewModel,
-                            hasPermission = hasCallLogPermission,
-                            onPermissionRequest = {
-                                permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
-                            },
-                            onCallClick = { call ->
-                                ongoingCall = CallInfo(call.name, call.number)
-                                onCallClick(call)
-                            }
-                        )
-                    }
-
-                    if (isDialpadVisible) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.3f))
-                        ) {
+                        label = "ScreenNavigation"
+                    ) { dialpadActive ->
+                        if (dialpadActive) {
                             DialpadScreen(
                                 isDarkModeEnabled = isDarkModeEnabled,
                                 onDismiss = { isDialpadVisible = false },
@@ -196,14 +140,78 @@ fun HomeScreen(
                                     onDialpadCall(number)
                                 }
                             )
-                        }
-                        
-                        BackHandler {
-                            isDialpadVisible = false
+                            BackHandler {
+                                isDialpadVisible = false
+                            }
+                        } else {
+                            Scaffold(
+                                topBar = {
+                                    AnimatedContent(
+                                        targetState = isSearchActive,
+                                        transitionSpec = {
+                                            if (targetState) {
+                                                slideInVertically { -it } + fadeIn() togetherWith 
+                                                slideOutVertically { it } + fadeOut()
+                                            } else {
+                                                slideInVertically { it } + fadeIn() togetherWith 
+                                                slideOutVertically { -it } + fadeOut()
+                                            }
+                                        },
+                                        label = "HeaderTransition"
+                                    ) { active ->
+                                        if (active) {
+                                            SearchHeader(
+                                                query = viewModel.searchQuery.value,
+                                                onQueryChange = { viewModel.onSearchQueryChanged(it) },
+                                                onBackClick = { 
+                                                    isSearchActive = false
+                                                    viewModel.onSearchQueryChanged("")
+                                                },
+                                                padding = horizontalPadding
+                                            )
+                                        } else {
+                                            HomeHeader(
+                                                titleSize = titleSize,
+                                                padding = horizontalPadding,
+                                                totalCount = viewModel.totalItemCount.value,
+                                                currentPage = viewModel.currentPage.value,
+                                                pageSize = viewModel.pageSize,
+                                                onSearchClick = { isSearchActive = true }
+                                            )
+                                        }
+                                    }
+                                },
+                                floatingActionButton = {
+                                    if (!isSearchActive) {
+                                        DialerFab(
+                                            size = fabSize,
+                                            onClick = { isDialpadVisible = true }
+                                        )
+                                    }
+                                },
+                                containerColor = Color.Transparent
+                            ) { paddingValues ->
+                                RecentCallsList(
+                                    modifier = Modifier.padding(paddingValues),
+                                    horizontalPadding = horizontalPadding,
+                                    itemHeight = itemHeight,
+                                    avatarSize = avatarSize,
+                                    viewModel = viewModel,
+                                    hasPermission = hasCallLogPermission,
+                                    onPermissionRequest = {
+                                        permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+                                    },
+                                    onCallClick = { call ->
+                                        ongoingCall = CallInfo(call.name, call.number)
+                                        onCallClick(call)
+                                    }
+                                )
+                            }
                         }
                     }
 
-                    BackHandler(enabled = isSearchActive) {
+                    // Global overlays (Ongoing Call and Search BackHandler)
+                    BackHandler(enabled = isSearchActive && !isDialpadVisible) {
                         isSearchActive = false
                         viewModel.onSearchQueryChanged("")
                     }

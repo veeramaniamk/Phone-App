@@ -65,6 +65,18 @@ fun RecentCallsList(
         }
     }
 
+    // Active page tracking based on scroll position
+    val activePage by remember {
+        derivedStateOf {
+            val firstVisibleItem = listState.firstVisibleItemIndex
+            if (displayList.isEmpty()) 0 else (firstVisibleItem / viewModel.pageSize) + 1
+        }
+    }
+
+    LaunchedEffect(activePage) {
+        viewModel.updateCurrentPage(activePage)
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         when {
             !hasPermission -> {
