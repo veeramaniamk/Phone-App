@@ -21,8 +21,9 @@ class SplashViewModel @Inject constructor() : ViewModel() {
 
     private fun startSplashTimer() {
         viewModelScope.launch {
-            delay(500)
+            delay(1000)
             _navigateToNext.emit(Unit)
         }
     }
+
 }
