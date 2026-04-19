@@ -124,7 +124,6 @@ fun HomeScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(Color.Black.copy(alpha = 0.3f))
-                                .clickable { isDialpadVisible = false }
                         ) {
                             DialpadScreen(
                                 isDarkModeEnabled = isDarkModeEnabled,
@@ -297,7 +296,6 @@ private fun RecentCallItem(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .clickable(onClick = onClick)
             .padding(horizontal = horizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
