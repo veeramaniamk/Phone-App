@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
+import com.veera.feature.new_contact.ui.NewContactScreen
 
 data class ContactEntry(
     val id: String,
@@ -40,6 +41,8 @@ fun ContactScreen(
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
     onContactClick: (ContactEntry) -> Unit = {}
 ) {
+    var showNewContact by remember { mutableStateOf(false) }
+
     DialerTheme(darkTheme = isDarkModeEnabled) {
         var visible by remember { mutableStateOf(false) }
         
@@ -70,7 +73,8 @@ fun ContactScreen(
                     topBar = {
                         ContactHeader(
                             titleSize = titleSize,
-                            padding = horizontalPadding
+                            padding = horizontalPadding,
+                            onAddClick = { showNewContact = true }
                         )
                     },
                     containerColor = Color.Transparent
@@ -84,6 +88,18 @@ fun ContactScreen(
                     )
                 }
             }
+            
+            // New Contact Screen Overlay
+            if (showNewContact) {
+                NewContactScreen(
+                    onDismiss = { showNewContact = false },
+                    onSave = { first, last, phone ->
+                        // Logic to save contact
+                        showNewContact = false
+                    },
+                    isDarkModeEnabled = isDarkModeEnabled
+                )
+            }
         }
     }
 }
@@ -91,7 +107,8 @@ fun ContactScreen(
 @Composable
 private fun ContactHeader(
     titleSize: TextUnit,
-    padding: Dp
+    padding: Dp,
+    onAddClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -119,19 +136,22 @@ private fun ContactHeader(
         }
         
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            HeaderActionIcon(Icons.Default.Add)
+            HeaderActionIcon(Icons.Default.Add, onClick = onAddClick)
             HeaderActionIcon(Icons.Default.Search)
         }
     }
 }
 
 @Composable
-private fun HeaderActionIcon(icon: androidx.compose.ui.graphics.vector.ImageVector) {
+private fun HeaderActionIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit = {}
+) {
     Surface(
         modifier = Modifier.size(44.dp),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        onClick = {}
+        onClick = onClick
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(

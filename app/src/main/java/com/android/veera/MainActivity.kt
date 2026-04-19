@@ -19,6 +19,7 @@ import com.veera.core.theme.DialerTheme
 import com.veera.core.util.DialerManager
 import com.veera.feature.contact.ui.ContactScreen
 import com.veera.feature.home.HomeScreen
+import com.veera.feature.new_contact.ui.NewContactScreen
 import com.veera.feature.onboarding.ui.DefaultDialerScreen
 import com.veera.feature.splash.ui.SplashScreen
 import dagger.hilt.android.AndroidEntryPoint
@@ -144,5 +145,12 @@ sealed class Screen {
 @Preview
 @Composable
 fun Prev() {
-    ContactScreen()
+    NewContactScreen(
+        onDismiss = {
+
+        },
+        onSave = { a, b, c ->
+
+        }
+    )
 }
