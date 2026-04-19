@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,9 +60,9 @@ fun HomeScreen(
     onDialpadCall: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    var isDialpadVisible by remember { mutableStateOf(false) }
+    var isDialpadVisible by rememberSaveable { mutableStateOf(false) }
     var ongoingCall by remember { mutableStateOf<CallInfo?>(null) }
-    var isSearchActive by remember { mutableStateOf(false) }
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
     var hasCallLogPermission by remember {

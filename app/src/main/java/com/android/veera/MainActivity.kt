@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -40,7 +41,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             DialerTheme {
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Splash) }
+                var currentScreen by rememberSaveable { mutableStateOf(Screen.Splash) }
                 val callState by callViewModel.callState.collectAsState()
                 val callerName by callViewModel.callerName.collectAsState()
                 val callerNumber by callViewModel.callerNumber.collectAsState()
@@ -126,7 +127,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainContainer(onCallClick: (String) -> Unit) {
-    var currentTab by remember { mutableStateOf(BottomTab.Recents) }
+    var currentTab by rememberSaveable { mutableStateOf(BottomTab.Recents) }
 
     Scaffold(
         bottomBar = {
@@ -183,8 +184,8 @@ enum class BottomTab(val title: String, val icon: ImageVector) {
     Contacts("Contacts", Icons.Default.Contacts)
 }
 
-sealed class Screen {
-    object Splash : Screen()
-    object Onboarding : Screen()
-    object MainContainer : Screen()
+enum class Screen {
+    Splash,
+    Onboarding,
+    MainContainer
 }
