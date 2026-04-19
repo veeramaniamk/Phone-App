@@ -1,4 +1,4 @@
-package com.veera.feature.home
+package com.veera.feature.home.ui
 
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
@@ -6,7 +6,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,11 +38,10 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
 import com.veera.feature.dialpad.ui.DialpadScreen
+import com.veera.feature.home.HomeViewModel
 import com.veera.feature.ongoing.ui.OngoingCallScreen
 
 data class RecentCall(
@@ -207,54 +205,6 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHeader(
-    titleSize: TextUnit,
-    padding: Dp
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = padding, vertical = 20.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(
-                text = "Recents",
-                style = AppTheme.typography.titleLarge.copy(
-                    fontSize = titleSize,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            )
-            Text(
-                text = "Recent calls from your contacts",
-                style = AppTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                )
-            )
-        }
-        
-        Surface(
-            modifier = Modifier.size(44.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-            onClick = {}
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun DialerFab(
     size: Dp,
     onClick: () -> Unit
@@ -290,121 +240,8 @@ private fun DialerFab(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecentCallsList(
-    modifier: Modifier = Modifier,
-    horizontalPadding: Dp,
-    itemHeight: Dp,
-    avatarSize: Dp,
-    viewModel: HomeViewModel,
-    hasPermission: Boolean,
-    onPermissionRequest: () -> Unit,
-    onCallClick: (RecentCall) -> Unit
-) {
-    val listState = rememberLazyListState()
-    
-    val allRecents = viewModel.allRecents
-    val isLoading by viewModel.isLoading
-    val isInitialLoading by viewModel.isInitialLoading
-    val isEndReached by viewModel.isEndReached
-
-    // Initial load when permission is granted
-    LaunchedEffect(hasPermission) {
-        if (hasPermission && allRecents.isEmpty()) {
-            viewModel.loadNextPage()
-        }
-    }
-
-    // Infinite scroll detection
-    val shouldLoadMore = remember {
-        derivedStateOf {
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-                ?: return@derivedStateOf false
-            
-            lastVisibleItem.index >= allRecents.size - 5 && !isLoading && !isEndReached
-        }
-    }
-
-    LaunchedEffect(shouldLoadMore.value) {
-        if (shouldLoadMore.value && hasPermission) {
-            viewModel.loadNextPage()
-        }
-    }
-
-    Box(modifier = modifier.fillMaxSize()) {
-        when {
-            !hasPermission -> {
-                PermissionRequiredView(onPermissionRequest)
-            }
-            isInitialLoading && allRecents.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = AppTheme.colors.Primary,
-                        strokeWidth = 3.dp
-                    )
-                }
-            }
-            !isInitialLoading && allRecents.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = fadeIn() + scaleIn(initialScale = 0.9f)
-                    ) {
-                        NoDataFoundView()
-                    }
-                }
-            }
-            else -> {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
-                ) {
-                    items(
-                        items = allRecents,
-                        key = { it.id }
-                    ) { call ->
-                        RecentCallItem(
-                            modifier = Modifier.animateItem(
-                                placementSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            ),
-                            call = call,
-                            horizontalPadding = horizontalPadding,
-                            height = itemHeight,
-                            avatarSize = avatarSize,
-                            onClick = { onCallClick(call) }
-                        )
-                    }
-
-                    if (isLoading && !isInitialLoading) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 24.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(32.dp),
-                                    color = AppTheme.colors.Primary,
-                                    strokeWidth = 2.dp
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PermissionRequiredView(onRequestPermission: () -> Unit) {
+ fun PermissionRequiredView(onRequestPermission: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -472,146 +309,3 @@ private fun PermissionRequiredView(onRequestPermission: () -> Unit) {
     }
 }
 
-@Composable
-private fun NoDataFoundView() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.History,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Text(
-            text = "No Recent Calls",
-            style = AppTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "When you make or receive calls, they will appear here.",
-            textAlign = TextAlign.Center,
-            style = AppTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-        )
-    }
-}
-
-
-
-@Composable
-private fun RecentCallItem(
-    modifier: Modifier = Modifier,
-    call: RecentCall,
-    horizontalPadding: Dp,
-    height: Dp,
-    avatarSize: Dp,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height)
-            .padding(horizontal = horizontalPadding),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Avatar with initials
-        Surface(
-            modifier = Modifier.size(avatarSize),
-            shape = CircleShape,
-            color = if (call.isMissed) AppTheme.colors.Error.copy(alpha = 0.15f) 
-                    else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = call.name.split(" ").mapNotNull { it.firstOrNull() }.joinToString("").take(2),
-                    style = AppTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (avatarSize.value * 0.35).sp,
-                        color = if (call.isMissed) AppTheme.colors.Error else MaterialTheme.colorScheme.primary
-                    )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        // Name, Number and Call Info
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = call.name,
-                maxLines = 1,
-                style = AppTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp,
-                    color = if (call.isMissed) AppTheme.colors.Error else MaterialTheme.colorScheme.onBackground
-                )
-            )
-            
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 2.dp)
-            ) {
-                Icon(
-                    imageVector = getCallTypeIcon(call.type),
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = if (call.isMissed) AppTheme.colors.Error else AppTheme.colors.Tertiary
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "${call.type.name.lowercase().replaceFirstChar { it.uppercase() }} • ${call.timestamp}",
-                    style = AppTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                )
-            }
-        }
-
-        // Action Button (Call Icon)
-        IconButton(
-            onClick = onClick,
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-        ) {
-            Icon(
-                imageVector = Icons.Default.Call,
-                contentDescription = "Call ${call.name}",
-                tint = AppTheme.colors.Success,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-private fun getCallTypeIcon(type: CallType): ImageVector {
-    return when (type) {
-        CallType.INCOMING -> Icons.AutoMirrored.Filled.CallReceived
-        CallType.OUTGOING -> Icons.AutoMirrored.Filled.CallMade
-        CallType.MISSED -> Icons.AutoMirrored.Filled.CallMissed
-    }
-}

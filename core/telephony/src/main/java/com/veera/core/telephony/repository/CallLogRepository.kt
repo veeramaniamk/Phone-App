@@ -2,6 +2,7 @@ package com.veera.core.telephony.repository
 
 import android.content.Context
 import android.provider.CallLog
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,6 +22,9 @@ data class CallLogEntry(
 class CallLogRepository @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+
+    private  val TAG = "CallLogsDebug"
+
     suspend fun getCallLogs(page: Int, pageSize: Int): List<CallLogEntry> = withContext(Dispatchers.IO) {
         val list = mutableListOf<CallLogEntry>()
         val projection = arrayOf(
@@ -44,7 +48,11 @@ class CallLogRepository @Inject constructor(
             )
 
             cursor?.use {
+                Log.d(TAG, "Total rows in cursor = ${it.count}")
+
                 val startIndex = page * pageSize
+                Log.d(TAG, "Page: $page, PageSize: $pageSize, StartIndex: $startIndex")
+
                 if (it.moveToPosition(startIndex)) {
                     var count = 0
                     do {
@@ -55,13 +63,44 @@ class CallLogRepository @Inject constructor(
                         val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
                         val duration = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DURATION))
 
+                        // Convert type to readable string
+                        val typeStr = when (type) {
+                            CallLog.Calls.INCOMING_TYPE -> "INCOMING"
+                            CallLog.Calls.OUTGOING_TYPE -> "OUTGOING"
+                            CallLog.Calls.MISSED_TYPE -> "MISSED"
+                            CallLog.Calls.REJECTED_TYPE -> "REJECTED"
+                            CallLog.Calls.BLOCKED_TYPE -> "BLOCKED"
+                            else -> "UNKNOWN"
+                        }
+
+                        // Convert date to readable format
+                        val formattedDate = java.text.SimpleDateFormat(
+                            "dd-MM-yyyy HH:mm:ss",
+                            java.util.Locale.getDefault()
+                        ).format(java.util.Date(date))
+
+                        // 🔥 LOG EVERYTHING
+                        Log.d(TAG, """
+                        ------------------------------
+                        ID: $id
+                        Name: ${name ?: "NULL"}
+                        Number: $number
+                        Date: $formattedDate
+                        Type: $typeStr
+                        Duration: $duration sec
+                        ------------------------------
+                    """.trimIndent())
+
                         list.add(CallLogEntry(id, name, number, date, type, duration))
                         count++
                     } while (it.moveToNext() && count < pageSize)
+                } else {
+                    Log.d(TAG, "moveToPosition failed. No data for this page.")
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            Log.e(TAG, "Error fetching call logs", e)
         }
 
         list

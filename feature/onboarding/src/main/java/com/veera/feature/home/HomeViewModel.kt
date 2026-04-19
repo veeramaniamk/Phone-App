@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.veera.core.telephony.repository.CallLogEntry
 import com.veera.core.telephony.repository.CallLogRepository
+import com.veera.feature.home.ui.CallType
+import com.veera.feature.home.ui.RecentCall
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -42,9 +44,10 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun CallLogEntry.toRecentCall(): RecentCall {
+        val name = if(name.isNullOrEmpty() || name.isNullOrBlank()) number else name?:""
         return RecentCall(
             id = id,
-            name = name ?: number,
+            name = name,
             number = number,
             timestamp = formatTimestamp(date),
             type = mapCallType(type),
