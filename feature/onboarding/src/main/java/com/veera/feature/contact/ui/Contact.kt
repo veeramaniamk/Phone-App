@@ -1,6 +1,7 @@
 package com.veera.feature.contact.ui
 
 import android.annotation.SuppressLint
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -35,6 +36,7 @@ import com.veera.core.telephony.model.ContactAccount
 import com.veera.core.telephony.model.FilterType
 import com.veera.feature.contact_detail.ui.ContactDetailScreen
 import com.veera.feature.new_contact.ui.NewContactScreen
+import com.veera.core.telephony.repository.CallLogEntry
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -51,6 +53,7 @@ fun ContactScreen(
     val filterType by viewModel.filterType.collectAsState()
     val selectedAccount by viewModel.selectedAccount.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
+    val totalCount by viewModel.totalContactsCount.collectAsState()
     
     val pagedContacts = viewModel.contacts.collectAsLazyPagingItems()
 
@@ -85,6 +88,7 @@ fun ContactScreen(
                             ContactHeader(
                                 titleSize = titleSize,
                                 padding = horizontalPadding,
+                                totalCount = totalCount,
                                 onAddClick = { showNewContact = true }
                             )
                             
@@ -137,8 +141,13 @@ fun ContactScreen(
                 ContactDetailScreen(
                     contact = contact,
                     onBackClick = { selectedContact = null },
-                    isDarkModeEnabled = isDarkModeEnabled
+                    isDarkModeEnabled = isDarkModeEnabled,
+                    viewModel = viewModel
                 )
+                
+                BackHandler {
+                    selectedContact = null
+                }
             }
         }
     }
@@ -274,6 +283,7 @@ private fun FilterChip(
 private fun ContactHeader(
     titleSize: TextUnit,
     padding: Dp,
+    totalCount: Int,
     onAddClick: () -> Unit
 ) {
     Row(
@@ -293,6 +303,22 @@ private fun ContactHeader(
                     color = MaterialTheme.colorScheme.onBackground
                 )
             )
+            AnimatedContent(
+                targetState = totalCount,
+                transitionSpec = {
+                    (slideInVertically { it } + fadeIn() togetherWith 
+                    slideOutVertically { -it } + fadeOut()).using(SizeTransform(clip = false))
+                },
+                label = "CountAnimation"
+            ) { count ->
+                Text(
+                    text = "$count total contacts",
+                    style = AppTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
         }
         
         HeaderActionIcon(Icons.Default.Add, onClick = onAddClick)

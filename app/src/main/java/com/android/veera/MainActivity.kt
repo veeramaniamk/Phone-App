@@ -131,6 +131,10 @@ class MainActivity : ComponentActivity() {
 fun MainContainer(onCallClick: (String) -> Unit) {
     var currentTab by rememberSaveable { mutableStateOf(BottomTab.Recents) }
 
+    androidx.activity.compose.BackHandler(enabled = currentTab != BottomTab.Recents) {
+        currentTab = BottomTab.Recents
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar(

@@ -9,12 +9,15 @@ import androidx.paging.cachedIn
 import com.veera.core.telephony.model.Contact
 import com.veera.core.telephony.model.ContactAccount
 import com.veera.core.telephony.model.FilterType
+import com.veera.core.telephony.repository.CallLogEntry
 import com.veera.core.telephony.repository.ContactRepository
 import com.veera.core.telephony.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.paging.PagingSource
+import androidx.paging.PagingState
 
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
@@ -34,6 +37,9 @@ class ContactsViewModel @Inject constructor(
     private val _accounts = MutableStateFlow<List<ContactAccount>>(emptyList())
     val accounts = _accounts.asStateFlow()
 
+    private val _totalContactsCount = MutableStateFlow(0)
+    val totalContactsCount = _totalContactsCount.asStateFlow()
+
     init {
         viewModelScope.launch {
             userPreferencesRepository.lastFilterType.collect { type ->
@@ -48,6 +54,21 @@ class ContactsViewModel @Inject constructor(
             }
         }
         loadAccounts()
+        observeCount()
+    }
+
+    private fun observeCount() {
+        combine(_searchQuery, _filterType, _selectedAccount) { query, filter, account ->
+            Triple(query, filter, account)
+        }.onEach { (query, filter, account) ->
+            val accName = if (filter == FilterType.EMAIL) account?.name else null
+            val accType = when (filter) {
+                FilterType.SIM -> "sim"
+                FilterType.EMAIL -> account?.type
+                else -> null
+            }
+            _totalContactsCount.value = contactRepository.getTotalContactsCount(query, accName, accType)
+        }.launchIn(viewModelScope)
     }
 
     private fun loadAccounts() {
@@ -102,6 +123,42 @@ class ContactsViewModel @Inject constructor(
                 _selectedAccount.value?.name,
                 _selectedAccount.value?.type
             )
+        }
+    }
+
+    fun getEmails(contactId: String): Flow<List<String>> = flow {
+        emit(contactRepository.getContactEmails(contactId))
+    }
+
+    fun getCallHistory(phoneNumber: String): Flow<List<CallLogEntry>> = flow {
+        emit(contactRepository.getContactCallHistory(phoneNumber, limit = 10))
+    }
+
+    fun getCallHistoryPaged(phoneNumber: String): Flow<PagingData<CallLogEntry>> {
+        return Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+            pagingSourceFactory = { ContactHistoryPagingSource(contactRepository, phoneNumber) }
+        ).flow.cachedIn(viewModelScope)
+    }
+}
+
+class ContactHistoryPagingSource(
+    private val repository: ContactRepository,
+    private val phoneNumber: String
+) : PagingSource<Int, CallLogEntry>() {
+    override fun getRefreshKey(state: PagingState<Int, CallLogEntry>): Int? = state.anchorPosition
+
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CallLogEntry> {
+        val page = params.key ?: 0
+        return try {
+            val history = repository.getContactCallHistory(phoneNumber, limit = params.loadSize, offset = page * params.loadSize)
+            LoadResult.Page(
+                data = history,
+                prevKey = if (page == 0) null else page - 1,
+                nextKey = if (history.isEmpty()) null else page + 1
+            )
+        } catch (e: Exception) {
+            LoadResult.Error(e)
         }
     }
 }

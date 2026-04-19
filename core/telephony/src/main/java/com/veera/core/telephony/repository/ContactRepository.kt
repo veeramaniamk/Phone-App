@@ -132,4 +132,119 @@ class ContactRepository @Inject constructor(
         }
         accounts
     }
+
+    suspend fun getTotalContactsCount(
+        query: String = "",
+        accountName: String? = null,
+        accountType: String? = null
+    ): Int = withContext(Dispatchers.IO) {
+        val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        val projection = arrayOf(ContactsContract.CommonDataKinds.Phone._ID)
+        
+        val selectionList = mutableListOf<String>()
+        val selectionArgs = mutableListOf<String>()
+
+        if (query.isNotEmpty()) {
+            selectionList.add("${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?")
+            selectionArgs.add("%$query%")
+        }
+
+        if (accountName != null && accountType != null) {
+            selectionList.add("${ContactsContract.RawContacts.ACCOUNT_NAME} = ?")
+            selectionArgs.add(accountName)
+            selectionList.add("${ContactsContract.RawContacts.ACCOUNT_TYPE} = ?")
+            selectionArgs.add(accountType)
+        } else if (accountType != null) {
+            selectionList.add("${ContactsContract.RawContacts.ACCOUNT_TYPE} LIKE ?")
+            selectionArgs.add("%$accountType%")
+        }
+
+        val selection = if (selectionList.isEmpty()) null else selectionList.joinToString(" AND ")
+        
+        var count = 0
+        try {
+            val cursor: Cursor? = context.contentResolver.query(
+                uri,
+                projection,
+                selection,
+                selectionArgs.toTypedArray(),
+                null
+            )
+            count = cursor?.count ?: 0
+            cursor?.close()
+        } catch (e: Exception) { e.printStackTrace() }
+        count
+    }
+
+    suspend fun getContactEmails(contactId: String): List<String> = withContext(Dispatchers.IO) {
+        val emails = mutableListOf<String>()
+        val uri = ContactsContract.CommonDataKinds.Email.CONTENT_URI
+        val projection = arrayOf(ContactsContract.CommonDataKinds.Email.ADDRESS)
+        
+        // We need to find the raw contact IDs for this contact first to be accurate, 
+        // but for now, filtering by CONTACT_ID is usually sufficient.
+        val selection = "${ContactsContract.CommonDataKinds.Email.CONTACT_ID} = ?"
+        val selectionArgs = arrayOf(contactId)
+        
+        try {
+            context.contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+                val index = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS)
+                if (index != -1) {
+                    while (cursor.moveToNext()) {
+                        emails.add(cursor.getString(index))
+                    }
+                }
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+        emails
+    }
+
+    suspend fun getContactCallHistory(
+        phoneNumber: String,
+        limit: Int = 20,
+        offset: Int = 0
+    ): List<CallLogEntry> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<CallLogEntry>()
+        val uri = android.provider.CallLog.Calls.CONTENT_URI
+        val projection = arrayOf(
+            android.provider.CallLog.Calls._ID,
+            android.provider.CallLog.Calls.CACHED_NAME,
+            android.provider.CallLog.Calls.NUMBER,
+            android.provider.CallLog.Calls.DATE,
+            android.provider.CallLog.Calls.TYPE,
+            android.provider.CallLog.Calls.DURATION
+        )
+        
+        val selection = "${android.provider.CallLog.Calls.NUMBER} LIKE ?"
+        // Simple search for the last 7+ digits for better matching
+        val normalized = phoneNumber.replace(Regex("[^0-9]"), "")
+        val searchPattern = if (normalized.length >= 7) "%${normalized.takeLast(7)}" else "%$normalized%"
+        val selectionArgs = arrayOf(searchPattern)
+        val sortOrder = "${android.provider.CallLog.Calls.DATE} DESC LIMIT $limit OFFSET $offset"
+
+        try {
+            context.contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)?.use { cursor ->
+                val idIdx = cursor.getColumnIndex(android.provider.CallLog.Calls._ID)
+                val nameIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.CACHED_NAME)
+                val numIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.NUMBER)
+                val dateIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.DATE)
+                val typeIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.TYPE)
+                val durIdx = cursor.getColumnIndex(android.provider.CallLog.Calls.DURATION)
+
+                while (cursor.moveToNext()) {
+                    list.add(
+                        CallLogEntry(
+                            id = cursor.getString(idIdx),
+                            name = cursor.getString(nameIdx) ?: "",
+                            number = cursor.getString(numIdx) ?: "",
+                            date = cursor.getLong(dateIdx),
+                            type = cursor.getInt(typeIdx),
+                            duration = cursor.getLong(durIdx)
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+        list
+    }
 }
