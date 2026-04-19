@@ -1,10 +1,14 @@
 package com.veera.core.util
 
+import android.Manifest
 import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.telecom.TelecomManager
+import androidx.annotation.RequiresPermission
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,6 +21,18 @@ class DialerManager @Inject constructor(
 
     fun isDefaultDialer(): Boolean {
         return context.packageName == telecomManager.defaultDialerPackage
+    }
+
+    @RequiresPermission(Manifest.permission.CALL_PHONE)
+    fun makeCall(number: String) {
+        try {
+            val uri = Uri.fromParts("tel", number, null)
+            val extras = Bundle()
+            // Optional: specify which phone account to use
+            telecomManager.placeCall(uri, extras)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun createRequestDefaultDialerIntent(): Intent? {
