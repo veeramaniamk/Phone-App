@@ -215,7 +215,7 @@ class CallLogRepository @Inject constructor(
         suggestions.distinctBy { it.number }
     }
 
-    private fun getContactName(phoneNumber: String): String? {
+    fun getContactName(phoneNumber: String): String? {
         val uri = Uri.withAppendedPath(
             ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
             Uri.encode(phoneNumber)

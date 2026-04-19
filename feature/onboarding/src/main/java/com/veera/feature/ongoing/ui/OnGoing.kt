@@ -1,7 +1,10 @@
 package com.veera.feature.ongoing.ui
 
 import android.annotation.SuppressLint
+import android.telecom.Call
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -28,15 +31,25 @@ import kotlinx.coroutines.delay
 fun OngoingCallScreen(
     name: String,
     number: String,
+    status: String,
+    isMuted: Boolean = false,
+    isSpeakerOn: Boolean = false,
+    onMuteClick: () -> Unit = {},
+    onSpeakerClick: () -> Unit = {},
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
     onEndCall: () -> Unit
 ) {
     var callDuration by remember { mutableLongStateOf(0L) }
+    val isCallActive = status == "Connected"
     
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            callDuration++
+    LaunchedEffect(isCallActive) {
+        if (isCallActive) {
+            while (true) {
+                delay(1000)
+                callDuration++
+            }
+        } else {
+            callDuration = 0L
         }
     }
 
@@ -51,9 +64,9 @@ fun OngoingCallScreen(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = if (isDarkModeEnabled) {
-                            listOf(Color(0xFF1A237E), Color(0xFF0D1B2A))
+                            listOf(Color(0xFF1A1A1A), Color(0xFF0D1B2A))
                         } else {
-                            listOf(Color(0xFF64B5F6), Color(0xFF1976D2))
+                            listOf(Color(0xFF2196F3), Color(0xFF1976D2))
                         }
                     )
                 )
@@ -61,7 +74,6 @@ fun OngoingCallScreen(
             val screenWidth = maxWidth
             val screenHeight = maxHeight
             
-            // Responsive metrics
             val avatarSize = if (screenHeight > 800.dp) 160.dp else 120.dp
             val titleSize = if (screenWidth > 400.dp) 32.sp else 28.sp
             val controlBtnSize = if (screenHeight > 800.dp) 72.dp else 64.dp
@@ -76,12 +88,12 @@ fun OngoingCallScreen(
             ) {
                 Spacer(modifier = Modifier.height(48.dp))
 
-                // Profile Image / Initial
+                // Profile / Avatar
                 Surface(
                     modifier = Modifier.size(avatarSize),
                     shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.2f),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.5f))
+                    color = Color.White.copy(alpha = 0.1f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
@@ -97,7 +109,7 @@ fun OngoingCallScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Contact Info
+                // Identity & Status
                 Text(
                     text = name,
                     style = AppTheme.typography.titleLarge.copy(
@@ -110,26 +122,40 @@ fun OngoingCallScreen(
                 Text(
                     text = number,
                     style = AppTheme.typography.bodyLarge.copy(
-                        color = Color.White.copy(alpha = 0.8f),
+                        color = Color.White.copy(alpha = 0.7f),
                         fontSize = 18.sp
                     )
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Call Status/Duration
-                Text(
-                    text = durationText,
-                    style = AppTheme.typography.bodyLarge.copy(
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium,
-                        letterSpacing = 2.sp
+                // Connection Status / Timer
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = status,
+                        style = AppTheme.typography.bodyLarge.copy(
+                            color = if (status == "Connected") Color(0xFF4CAF50) else Color.White.copy(alpha = 0.9f),
+                            fontWeight = FontWeight.Medium,
+                            letterSpacing = 1.sp
+                        )
                     )
-                )
+                    
+                    if (isCallActive) {
+                        Text(
+                            text = durationText,
+                            style = AppTheme.typography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 2.sp
+                            ),
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Control Buttons Grid
+                // Controls
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(32.dp),
@@ -139,9 +165,21 @@ fun OngoingCallScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        CallControlButton(Icons.Default.MicOff, "Mute", controlBtnSize)
+                        CallControlButton(
+                            icon = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                            label = if (isMuted) "Unmute" else "Mute",
+                            size = controlBtnSize,
+                            isActive = isMuted,
+                            onClick = onMuteClick
+                        )
                         CallControlButton(Icons.Default.Apps, "Keypad", controlBtnSize)
-                        CallControlButton(Icons.Default.VolumeUp, "Speaker", controlBtnSize)
+                        CallControlButton(
+                            icon = if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
+                            label = "Speaker",
+                            size = controlBtnSize,
+                            isActive = isSpeakerOn,
+                            onClick = onSpeakerClick
+                        )
                     }
                     
                     Row(
@@ -156,7 +194,7 @@ fun OngoingCallScreen(
 
                 Spacer(modifier = Modifier.height(64.dp))
 
-                // End Call Button
+                // Action
                 FloatingActionButton(
                     onClick = onEndCall,
                     containerColor = Color(0xFFE63946),
@@ -182,19 +220,23 @@ fun OngoingCallScreen(
 fun CallControlButton(
     icon: ImageVector,
     label: String,
-    size: Dp
+    size: Dp,
+    isActive: Boolean = false,
+    onClick: () -> Unit = {}
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
-            modifier = Modifier.size(size),
+            modifier = Modifier
+                .size(size)
+                .clickable { onClick() },
             shape = CircleShape,
-            color = Color.White.copy(alpha = 0.15f)
+            color = if (isActive) Color.White else Color.White.copy(alpha = 0.15f)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = icon,
                     contentDescription = label,
-                    tint = Color.White,
+                    tint = if (isActive) Color.Black else Color.White,
                     modifier = Modifier.size(size * 0.45f)
                 )
             }
