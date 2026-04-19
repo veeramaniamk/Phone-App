@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,11 +25,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.hilt.navigation.compose.hiltViewModel
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
 import com.veera.feature.dialpad.ui.DialpadScreen
@@ -55,10 +67,36 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
     onCallClick: (RecentCall) -> Unit = {},
-    onDialpadCall: (String) -> Unit = {}
+    onDialpadCall: (String) -> Unit = {},
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
     var isDialpadVisible by remember { mutableStateOf(false) }
     var ongoingCall by remember { mutableStateOf<CallInfo?>(null) }
+
+    val context = LocalContext.current
+    var hasCallLogPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_CALL_LOG
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCallLogPermission = isGranted
+        if (isGranted) {
+            viewModel.loadNextPage()
+        }
+    }
+
+    LaunchedEffect(hasCallLogPermission) {
+        if (!hasCallLogPermission) {
+            permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+        }
+    }
 
     DialerTheme(darkTheme = isDarkModeEnabled) {
         var visible by remember { mutableStateOf(false) }
@@ -111,6 +149,11 @@ fun HomeScreen(
                             horizontalPadding = horizontalPadding,
                             itemHeight = itemHeight,
                             avatarSize = avatarSize,
+                            viewModel = viewModel,
+                            hasPermission = hasCallLogPermission,
+                            onPermissionRequest = {
+                                permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+                            },
                             onCallClick = { call ->
                                 ongoingCall = CallInfo(call.name, call.number)
                                 onCallClick(call)
@@ -247,45 +290,241 @@ private fun DialerFab(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecentCallsList(
     modifier: Modifier = Modifier,
     horizontalPadding: Dp,
     itemHeight: Dp,
     avatarSize: Dp,
+    viewModel: HomeViewModel,
+    hasPermission: Boolean,
+    onPermissionRequest: () -> Unit,
     onCallClick: (RecentCall) -> Unit
 ) {
-    val dummyRecents = remember {
-        listOf(
-            RecentCall("1", "Alex Rivera", "+1 234 567 890", "10:30 AM", CallType.INCOMING),
-            RecentCall("2", "John Doe", "+1 987 654 321", "Yesterday", CallType.MISSED, isMissed = true),
-            RecentCall("3", "Sarah Wilson", "+1 555 019 283", "Monday", CallType.OUTGOING),
-            RecentCall("4", "Michael Brown", "+1 444 222 111", "Monday", CallType.INCOMING),
-            RecentCall("5", "Emily Davis", "+1 777 888 999", "Oct 12", CallType.OUTGOING),
-            RecentCall("6", "Jessica Thompson", "+1 123 456 789", "Oct 11", CallType.MISSED, isMissed = true),
-            RecentCall("7", "David Miller", "+1 321 654 987", "Oct 10", CallType.INCOMING),
-            RecentCall("8", "Kevin Wilson", "+1 999 888 777", "Oct 09", CallType.OUTGOING)
-        )
+    val listState = rememberLazyListState()
+    
+    val allRecents = viewModel.allRecents
+    val isLoading by viewModel.isLoading
+    val isInitialLoading by viewModel.isInitialLoading
+    val isEndReached by viewModel.isEndReached
+
+    // Initial load when permission is granted
+    LaunchedEffect(hasPermission) {
+        if (hasPermission && allRecents.isEmpty()) {
+            viewModel.loadNextPage()
+        }
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
+    // Infinite scroll detection
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+                ?: return@derivedStateOf false
+            
+            lastVisibleItem.index >= allRecents.size - 5 && !isLoading && !isEndReached
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore.value) {
+        if (shouldLoadMore.value && hasPermission) {
+            viewModel.loadNextPage()
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        when {
+            !hasPermission -> {
+                PermissionRequiredView(onPermissionRequest)
+            }
+            isInitialLoading && allRecents.isEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp),
+                        color = AppTheme.colors.Primary,
+                        strokeWidth = 3.dp
+                    )
+                }
+            }
+            !isInitialLoading && allRecents.isEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn() + scaleIn(initialScale = 0.9f)
+                    ) {
+                        NoDataFoundView()
+                    }
+                }
+            }
+            else -> {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
+                ) {
+                    items(
+                        items = allRecents,
+                        key = { it.id }
+                    ) { call ->
+                        RecentCallItem(
+                            modifier = Modifier.animateItem(
+                                placementSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            ),
+                            call = call,
+                            horizontalPadding = horizontalPadding,
+                            height = itemHeight,
+                            avatarSize = avatarSize,
+                            onClick = { onCallClick(call) }
+                        )
+                    }
+
+                    if (isLoading && !isInitialLoading) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(32.dp),
+                                    color = AppTheme.colors.Primary,
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionRequiredView(onRequestPermission: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        items(dummyRecents, key = { it.id }) { call ->
-            RecentCallItem(
-                call = call,
-                horizontalPadding = horizontalPadding,
-                height = itemHeight,
-                avatarSize = avatarSize,
-                onClick = { onCallClick(call) }
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Shield,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Text(
+            text = "Permission Required",
+            style = AppTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Text(
+            text = "To show your call history, we need access to your call log. This is required for the app to function as your dialer.",
+            textAlign = TextAlign.Center,
+            style = AppTheme.typography.bodyLarge.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(40.dp))
+        
+        Button(
+            onClick = onRequestPermission,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Grant Permission",
+                style = AppTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             )
         }
     }
 }
 
 @Composable
+private fun NoDataFoundView() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.History,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "No Recent Calls",
+            style = AppTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "When you make or receive calls, they will appear here.",
+            textAlign = TextAlign.Center,
+            style = AppTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        )
+    }
+}
+
+
+
+@Composable
 private fun RecentCallItem(
+    modifier: Modifier = Modifier,
     call: RecentCall,
     horizontalPadding: Dp,
     height: Dp,
@@ -293,7 +532,7 @@ private fun RecentCallItem(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(height)
             .padding(horizontal = horizontalPadding),

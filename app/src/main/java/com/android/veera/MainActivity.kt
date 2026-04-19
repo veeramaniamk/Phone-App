@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = if (dialerManager.isDefaultDialer()) {
                                         Screen.MainContainer
                                     } else {
-                                        Screen.MainContainer
+                                        Screen.Onboarding
                                     }
                                 }
                             )
