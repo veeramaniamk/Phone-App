@@ -98,9 +98,22 @@ class ContactRepository @Inject constructor(
     }
 
     suspend fun getContactById(id: String): Contact? = withContext(Dispatchers.IO) {
+        // Try searching by CONTACT_ID first (common for recents/dialpad results)
+        var contact = fetchContactByColumn(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, id)
+        
+        // If not found, try by _ID (common for direct contact list results)
+        if (contact == null) {
+            contact = fetchContactByColumn(ContactsContract.CommonDataKinds.Phone._ID, id)
+        }
+        
+        contact
+    }
+
+    private fun fetchContactByColumn(column: String, value: String): Contact? {
         val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone._ID,
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER,
             ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
@@ -108,13 +121,14 @@ class ContactRepository @Inject constructor(
             ContactsContract.RawContacts.ACCOUNT_TYPE
         )
         
-        val selection = "${ContactsContract.CommonDataKinds.Phone._ID} = ?"
-        val selectionArgs = arrayOf(id)
+        val selection = "$column = ?"
+        val selectionArgs = arrayOf(value)
 
         context.contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
-                return@withContext Contact(
-                    id = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone._ID)),
+                val idIndex = cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone._ID)
+                return Contact(
+                    id = cursor.getString(idIndex),
                     name = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)) ?: "Unknown",
                     number = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER)) ?: "",
                     photoUri = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI)),
@@ -123,7 +137,7 @@ class ContactRepository @Inject constructor(
                 )
             }
         }
-        null
+        return null
     }
 
     suspend fun getAccounts(): List<ContactAccount> = withContext(Dispatchers.IO) {

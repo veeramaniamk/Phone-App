@@ -155,7 +155,9 @@ class HomeViewModel @Inject constructor(
             number = number,
             timestamp = formatTimestamp(date),
             type = mapCallType(type),
-            isMissed = type == CallLog.Calls.MISSED_TYPE
+            isMissed = type == CallLog.Calls.MISSED_TYPE,
+            photoUri = photoUri,
+            contactId = contactId
         )
     }
 
