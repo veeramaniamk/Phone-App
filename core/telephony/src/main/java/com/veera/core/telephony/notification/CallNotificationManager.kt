@@ -15,7 +15,8 @@ import javax.inject.Singleton
 @Singleton
 class CallNotificationManager @Inject constructor(
     @ApplicationContext private val context: Context
-) {
+)
+{
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val CHANNEL_ID = "incoming_calls"
     private val NOTIFICATION_ID = 1001

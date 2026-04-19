@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.veera.core.theme.DialerTheme
 import com.veera.core.util.DialerManager
@@ -26,6 +27,7 @@ import com.veera.feature.splash.ui.SplashScreen
 import com.veera.feature.ongoing.ui.OngoingCallScreen
 import com.veera.feature.incommingcall.ui.IncomingCallScreen
 import com.veera.core.telephony.viewmodel.CallViewModel
+import com.veera.feature.new_contact.ui.NewContactScreen
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 

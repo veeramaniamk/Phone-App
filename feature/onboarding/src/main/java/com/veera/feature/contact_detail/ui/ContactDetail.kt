@@ -18,8 +18,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -28,12 +26,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
-import com.veera.feature.contact.ui.ContactEntry
+import com.veera.core.telephony.model.Contact
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun ContactDetailScreen(
-    contact: ContactEntry,
+    contact: Contact,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit = {},
     isDarkModeEnabled: Boolean = isSystemInDarkTheme()

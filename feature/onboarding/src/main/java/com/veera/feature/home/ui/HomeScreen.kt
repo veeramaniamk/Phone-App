@@ -58,7 +58,7 @@ fun HomeScreen(
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
     onCallClick: (RecentCall) -> Unit = {},
     onDialpadCall: (String) -> Unit = {},
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel<HomeViewModel>()
 ) {
     var isDialpadVisible by rememberSaveable { mutableStateOf(false) }
     var ongoingCall by remember { mutableStateOf<CallInfo?>(null) }
