@@ -1,20 +1,18 @@
 package com.veera.feature.home.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.CallMade
-import androidx.compose.material.icons.automirrored.filled.CallMissed
-import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,21 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.hilt.navigation.compose.hiltViewModel
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
 import com.veera.feature.dialpad.ui.DialpadScreen
@@ -70,6 +62,7 @@ fun HomeScreen(
 ) {
     var isDialpadVisible by remember { mutableStateOf(false) }
     var ongoingCall by remember { mutableStateOf<CallInfo?>(null) }
+    var isSearchActive by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     var hasCallLogPermission by remember {
@@ -111,7 +104,6 @@ fun HomeScreen(
             val screenWidth = maxWidth
             val screenHeight = maxHeight
             
-            // Responsive metrics
             val horizontalPadding = if (screenWidth > 600.dp) 32.dp else 20.dp
             val fabSize = if (screenHeight > 800.dp) 64.dp else 56.dp
             val titleSize = if (screenWidth > 400.dp) 32.sp else 28.sp
@@ -129,16 +121,46 @@ fun HomeScreen(
                 Box(modifier = Modifier.fillMaxSize()) {
                     Scaffold(
                         topBar = {
-                            HomeHeader(
-                                titleSize = titleSize,
-                                padding = horizontalPadding
-                            )
+                            AnimatedContent(
+                                targetState = isSearchActive,
+                                transitionSpec = {
+                                    if (targetState) {
+                                        slideInVertically { -it } + fadeIn() togetherWith slideOutVertically { it } + fadeOut()
+                                    } else {
+                                        slideInVertically { it } + fadeIn() togetherWith slideOutVertically { -it } + fadeOut()
+                                    }
+                                },
+                                label = "TopBarTransition"
+                            ) { active ->
+                                if (active) {
+                                    SearchHeader(
+                                        query = viewModel.searchQuery.value,
+                                        onQueryChange = { viewModel.onSearchQueryChanged(it) },
+                                        onBackClick = { 
+                                            isSearchActive = false
+                                            viewModel.onSearchQueryChanged("")
+                                        },
+                                        padding = horizontalPadding
+                                    )
+                                } else {
+                                    HomeHeader(
+                                        titleSize = titleSize,
+                                        padding = horizontalPadding,
+                                        totalCount = viewModel.totalItemCount.value,
+                                        currentPage = viewModel.currentPage.value,
+                                        pageSize = viewModel.pageSize,
+                                        onSearchClick = { isSearchActive = true }
+                                    )
+                                }
+                            }
                         },
                         floatingActionButton = {
-                            DialerFab(
-                                size = fabSize,
-                                onClick = { isDialpadVisible = true }
-                            )
+                            if (!isSearchActive) {
+                                DialerFab(
+                                    size = fabSize,
+                                    onClick = { isDialpadVisible = true }
+                                )
+                            }
                         },
                         containerColor = Color.Transparent
                     ) { paddingValues ->
@@ -159,7 +181,6 @@ fun HomeScreen(
                         )
                     }
 
-                    // Overlay Dialpad
                     if (isDialpadVisible) {
                         Box(
                             modifier = Modifier
@@ -182,7 +203,11 @@ fun HomeScreen(
                         }
                     }
 
-                    // Overlay Ongoing Call
+                    BackHandler(enabled = isSearchActive) {
+                        isSearchActive = false
+                        viewModel.onSearchQueryChanged("")
+                    }
+
                     AnimatedVisibility(
                         visible = ongoingCall != null,
                         enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -239,73 +264,3 @@ private fun DialerFab(
         }
     }
 }
-
-@Composable
- fun PermissionRequiredView(onRequestPermission: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Shield,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = "Permission Required",
-            style = AppTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        )
-        
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Text(
-            text = "To show your call history, we need access to your call log. This is required for the app to function as your dialer.",
-            textAlign = TextAlign.Center,
-            style = AppTheme.typography.bodyLarge.copy(
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-            )
-        )
-        
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        Button(
-            onClick = onRequestPermission,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
-        ) {
-            Text(
-                text = "Grant Permission",
-                style = AppTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            )
-        }
-    }
-}
-

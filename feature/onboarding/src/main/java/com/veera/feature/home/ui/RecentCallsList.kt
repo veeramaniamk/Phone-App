@@ -1,28 +1,22 @@
 package com.veera.feature.home.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.veera.core.theme.AppTheme
@@ -30,7 +24,7 @@ import com.veera.feature.home.HomeViewModel
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
- fun RecentCallsList(
+fun RecentCallsList(
     modifier: Modifier = Modifier,
     horizontalPadding: Dp,
     itemHeight: Dp,
@@ -41,15 +35,16 @@ import com.veera.feature.home.HomeViewModel
     onCallClick: (RecentCall) -> Unit
 ) {
     val listState = rememberLazyListState()
-
-    val allRecents = viewModel.allRecents
-    val isLoading by viewModel.isLoading
+    
+    val isSearching by viewModel.isSearching
+    val displayList = if (isSearching) viewModel.searchResults else viewModel.allRecents
+    val isLoading by if (isSearching) viewModel.isSearchLoading else viewModel.isLoading
     val isInitialLoading by viewModel.isInitialLoading
-    val isEndReached by viewModel.isEndReached
+    val isEndReached by if (isSearching) viewModel.isSearchEndReached else viewModel.isEndReached
 
     // Initial load when permission is granted
     LaunchedEffect(hasPermission) {
-        if (hasPermission && allRecents.isEmpty()) {
+        if (hasPermission && viewModel.allRecents.isEmpty()) {
             viewModel.loadNextPage()
         }
     }
@@ -59,14 +54,14 @@ import com.veera.feature.home.HomeViewModel
         derivedStateOf {
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
                 ?: return@derivedStateOf false
-
-            lastVisibleItem.index >= allRecents.size - 5 && !isLoading && !isEndReached
+            
+            lastVisibleItem.index >= displayList.size - 5 && !isLoading && !isEndReached
         }
     }
 
     LaunchedEffect(shouldLoadMore.value) {
         if (shouldLoadMore.value && hasPermission) {
-            viewModel.loadNextPage()
+            if (isSearching) viewModel.loadNextSearchPage() else viewModel.loadNextPage()
         }
     }
 
@@ -75,7 +70,7 @@ import com.veera.feature.home.HomeViewModel
             !hasPermission -> {
                 PermissionRequiredView(onPermissionRequest)
             }
-            isInitialLoading && allRecents.isEmpty() -> {
+            isInitialLoading && displayList.isEmpty() && !isSearching -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(48.dp),
@@ -84,7 +79,10 @@ import com.veera.feature.home.HomeViewModel
                     )
                 }
             }
-            !isInitialLoading && allRecents.isEmpty() -> {
+            isSearching && isInitialLoading && displayList.isEmpty() -> {
+                // Shimmer or searching state
+            }
+            !isInitialLoading && displayList.isEmpty() -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AnimatedVisibility(
                         visible = true,
@@ -101,7 +99,7 @@ import com.veera.feature.home.HomeViewModel
                     contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
                 ) {
                     items(
-                        items = allRecents,
+                        items = displayList,
                         key = { it.id }
                     ) { call ->
                         RecentCallItem(
@@ -119,7 +117,7 @@ import com.veera.feature.home.HomeViewModel
                         )
                     }
 
-                    if (isLoading && !isInitialLoading) {
+                    if (isLoading) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -137,6 +135,75 @@ import com.veera.feature.home.HomeViewModel
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun PermissionRequiredView(onRequestPermission: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Shield,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Permission Required",
+            style = AppTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "To show your call history, we need access to your call log. This is required for the app to function as your dialer.",
+            textAlign = TextAlign.Center,
+            style = AppTheme.typography.bodyLarge.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+        )
+
+        Spacer(modifier = Modifier.height(40.dp))
+
+        Button(
+            onClick = onRequestPermission,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Grant Permission",
+                style = AppTheme.typography.bodyLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            )
         }
     }
 }

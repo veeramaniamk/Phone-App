@@ -81,6 +81,18 @@ import com.veera.core.theme.AppTheme
                 )
             )
 
+            if (call.name != call.number) {
+                Text(
+                    text = call.number,
+                    maxLines = 1,
+                    style = AppTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 13.sp,
+                        color = if (call.isMissed) AppTheme.colors.Error.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                )
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 2.dp)
