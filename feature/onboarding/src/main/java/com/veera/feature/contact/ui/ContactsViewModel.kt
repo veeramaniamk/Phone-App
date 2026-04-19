@@ -140,6 +140,10 @@ class ContactsViewModel @Inject constructor(
             pagingSourceFactory = { ContactHistoryPagingSource(contactRepository, phoneNumber) }
         ).flow.cachedIn(viewModelScope)
     }
+
+    suspend fun fetchContactById(id: String): Contact? {
+        return contactRepository.getContactById(id)
+    }
 }
 
 class ContactHistoryPagingSource(

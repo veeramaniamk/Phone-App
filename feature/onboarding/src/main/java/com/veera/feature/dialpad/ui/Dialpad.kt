@@ -18,7 +18,10 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +48,9 @@ fun DialpadScreen(
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
     viewModel: DialpadViewModel = hiltViewModel(),
     onCallClick: (String) -> Unit = {},
-    onDismiss: () -> Unit = {}
+    onDismiss: () -> Unit = {},
+    onAddContactClick: (String) -> Unit = {},
+    onContactDetailClick: (String) -> Unit = {}
 ) {
     val phoneNumber by viewModel.phoneNumber
     val suggestions = viewModel.suggestions
@@ -115,6 +120,22 @@ fun DialpadScreen(
                             .fillMaxWidth(),
                         maxLines = 1
                     )
+                    
+                    // Add to Contacts Button
+                    AnimatedVisibility(
+                        visible = phoneNumber.isNotEmpty(),
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        TextButton(
+                            onClick = { onAddContactClick(phoneNumber) },
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Create New Contact", style = AppTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary))
+                        }
+                    }
 
                     // Suggestions List
                     AnimatedVisibility(
@@ -123,6 +144,15 @@ fun DialpadScreen(
                         exit = fadeOut() + shrinkVertically(),
                         modifier = Modifier.weight(1f)
                     ) {
+                        LaunchedEffect(listState) {
+                            snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+                                .collect { lastIndex ->
+                                    if (lastIndex != null && lastIndex >= suggestions.size - 5) {
+                                        viewModel.loadMoreSuggestions()
+                                    }
+                                }
+                        }
+
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
@@ -131,7 +161,13 @@ fun DialpadScreen(
                             items(suggestions) { suggestion ->
                                 SuggestionItem(
                                     suggestion = suggestion,
-                                    onClick = { viewModel.onNumberChanged(suggestion.number) }
+                                    onClick = { 
+                                        if (suggestion.contactId != null) {
+                                            onContactDetailClick(suggestion.contactId!!)
+                                        } else {
+                                            viewModel.onNumberChanged(suggestion.number) 
+                                        }
+                                    }
                                 )
                             }
                             
@@ -255,16 +291,25 @@ fun SuggestionItem(suggestion: DialpadSuggestion, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(40.dp).clip(CircleShape),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        suggestion.name.firstOrNull()?.toString() ?: "#",
-                        style = AppTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    if (suggestion.photoUri != null) {
+                        AsyncImage(
+                            model = suggestion.photoUri,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            suggestion.name.firstOrNull()?.toString() ?: "#",
+                            style = AppTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
             Spacer(Modifier.width(16.dp))

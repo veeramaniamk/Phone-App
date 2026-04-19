@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -47,7 +49,6 @@ fun ContactScreen(
     onContactClick: (Contact) -> Unit = {}
 ) {
     var showNewContact by remember { mutableStateOf(false) }
-    var selectedContact by remember { mutableStateOf<Contact?>(null) }
     
     val searchQuery by viewModel.searchQuery.collectAsState()
     val filterType by viewModel.filterType.collectAsState()
@@ -117,8 +118,6 @@ fun ContactScreen(
                         avatarSize = avatarSize,
                         pagedContacts = pagedContacts,
                         onContactClick = { contact ->
-                            selectedContact = contact
-                            // Map to ContactEntry if needed by Detail screen
                             onContactClick(contact)
                         }
                     )
@@ -136,19 +135,6 @@ fun ContactScreen(
                 )
             }
 
-            // Contact Detail Screen Overlay
-            selectedContact?.let { contact ->
-                ContactDetailScreen(
-                    contact = contact,
-                    onBackClick = { selectedContact = null },
-                    isDarkModeEnabled = isDarkModeEnabled,
-                    viewModel = viewModel
-                )
-                
-                BackHandler {
-                    selectedContact = null
-                }
-            }
         }
     }
 }
@@ -403,14 +389,23 @@ private fun ContactItem(
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = contact.initial,
-                    style = AppTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (avatarSize.value * 0.4).sp,
-                        color = MaterialTheme.colorScheme.primary
+                if (contact.photoUri != null) {
+                    AsyncImage(
+                        model = contact.photoUri,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
-                )
+                } else {
+                    Text(
+                        text = contact.initial,
+                        style = AppTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (avatarSize.value * 0.4).sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
             }
         }
 

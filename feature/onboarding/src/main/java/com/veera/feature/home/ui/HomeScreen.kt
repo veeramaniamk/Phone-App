@@ -35,6 +35,8 @@ import com.veera.core.util.DialerManager
 import com.veera.feature.dialpad.ui.DialpadScreen
 import com.veera.feature.home.HomeViewModel
 import com.veera.feature.ongoing.ui.OngoingCallScreen
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 data class RecentCall(
     val id: String,
@@ -42,7 +44,9 @@ data class RecentCall(
     val number: String,
     val timestamp: String,
     val type: CallType,
-    val isMissed: Boolean = false
+    val isMissed: Boolean = false,
+    val photoUri: String? = null,
+    val contactId: String? = null
 )
 
 enum class CallType {
@@ -56,8 +60,9 @@ data class CallInfo(val name: String, val number: String)
 fun HomeScreen(
     modifier: Modifier = Modifier,
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
-    onCallClick: (RecentCall) -> Unit = {},
+    onContactDetailClick: (RecentCall) -> Unit = {},
     onDialpadCall: (String) -> Unit = {},
+    onNavigateToCreateContact: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel<HomeViewModel>()
 ) {
     var isDialpadVisible by rememberSaveable { mutableStateOf(false) }
@@ -140,7 +145,14 @@ fun HomeScreen(
                                     isDialpadVisible = false
                                     ongoingCall = CallInfo("Unknown", number)
                                     onDialpadCall(number)
-                                }
+                                },
+                                onContactDetailClick = { contactId ->
+                                    // We only have ID here, how to get RecentCall?
+                                    // Actually, let's just use the ID to fetch and show detail.
+                                    // Wait, DialpadScreen needs to pass back the selection.
+                                    onContactDetailClick(RecentCall("", "", "", "", CallType.INCOMING, false, null, contactId))
+                                },
+                                onAddContactClick = {  }
                             )
                             BackHandler {
                                 isDialpadVisible = false
@@ -204,8 +216,7 @@ fun HomeScreen(
                                         permissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
                                     },
                                     onCallClick = { call ->
-                                        ongoingCall = CallInfo(call.name, call.number)
-                                        onCallClick(call)
+                                        onContactDetailClick(call)
                                     }
                                 )
                             }

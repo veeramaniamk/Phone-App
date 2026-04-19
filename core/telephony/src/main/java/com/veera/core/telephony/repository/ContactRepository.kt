@@ -97,6 +97,35 @@ class ContactRepository @Inject constructor(
         contacts
     }
 
+    suspend fun getContactById(id: String): Contact? = withContext(Dispatchers.IO) {
+        val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone._ID,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
+            ContactsContract.RawContacts.ACCOUNT_NAME,
+            ContactsContract.RawContacts.ACCOUNT_TYPE
+        )
+        
+        val selection = "${ContactsContract.CommonDataKinds.Phone._ID} = ?"
+        val selectionArgs = arrayOf(id)
+
+        context.contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                return@withContext Contact(
+                    id = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone._ID)),
+                    name = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)) ?: "Unknown",
+                    number = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER)) ?: "",
+                    photoUri = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI)),
+                    accountName = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.RawContacts.ACCOUNT_NAME)),
+                    accountType = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.RawContacts.ACCOUNT_TYPE))
+                )
+            }
+        }
+        null
+    }
+
     suspend fun getAccounts(): List<ContactAccount> = withContext(Dispatchers.IO) {
         val accounts = mutableListOf<ContactAccount>()
         val uri = ContactsContract.RawContacts.CONTENT_URI

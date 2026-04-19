@@ -30,6 +30,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.layout.ContentScale
 import com.veera.core.theme.AppTheme
 
 @Composable
@@ -45,6 +49,7 @@ import com.veera.core.theme.AppTheme
         modifier = modifier
             .fillMaxWidth()
             .height(height)
+            .clickable(onClick = onClick)
             .padding(horizontal = horizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -56,14 +61,23 @@ import com.veera.core.theme.AppTheme
             else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = call.name.split(" ").mapNotNull { it.firstOrNull() }.joinToString("").take(2),
-                    style = AppTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (avatarSize.value * 0.35).sp,
-                        color = if (call.isMissed) AppTheme.colors.Error else MaterialTheme.colorScheme.primary
+                if (call.photoUri != null) {
+                    AsyncImage(
+                        model = call.photoUri,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
-                )
+                } else {
+                    Text(
+                        text = call.name.split(" ").mapNotNull { it.firstOrNull() }.joinToString("").take(2),
+                        style = AppTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (avatarSize.value * 0.35).sp,
+                            color = if (call.isMissed) AppTheme.colors.Error else MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
             }
         }
 
@@ -116,7 +130,7 @@ import com.veera.core.theme.AppTheme
 
         // Action Button (Call Icon)
         IconButton(
-            onClick = onClick,
+            onClick = { /* Handle call action if needed separately */ },
             modifier = Modifier
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))

@@ -39,6 +39,8 @@ import com.veera.core.telephony.repository.CallLogEntry
 import com.veera.core.theme.AppTheme
 import com.veera.core.theme.DialerTheme
 import com.veera.feature.contact.ui.ContactsViewModel
+import android.content.Intent
+import android.net.Uri
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -46,6 +48,8 @@ fun ContactDetailScreen(
     contact: Contact,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit = {},
+    onCallClick: (String) -> Unit = {},
+    onMessageClick: (String) -> Unit = {},
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
     viewModel: ContactsViewModel
 ) {
@@ -156,10 +160,10 @@ fun ContactDetailScreen(
                             .padding(horizontal = horizontalPadding),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        QuickActionItem(Icons.Default.Call, "Call", actionIconSize)
-                        QuickActionItem(Icons.AutoMirrored.Filled.Message, "Text", actionIconSize)
-                        QuickActionItem(Icons.Default.VideoCall, "Video", actionIconSize)
-                        QuickActionItem(Icons.Default.Email, "Email", actionIconSize)
+                        QuickActionItem(Icons.Default.Call, "Call", actionIconSize, onClick = { onCallClick(contact.number) })
+                        QuickActionItem(Icons.AutoMirrored.Filled.Message, "Text", actionIconSize, onClick = { onMessageClick(contact.number) })
+                        QuickActionItem(Icons.Default.VideoCall, "Video", actionIconSize, onClick = { /* TODO */ })
+                        QuickActionItem(Icons.Default.Email, "Email", actionIconSize, onClick = { /* TODO */ })
                     }
 
                     Spacer(modifier = Modifier.height(40.dp))
@@ -248,11 +252,12 @@ fun ContactDetailScreen(
 private fun QuickActionItem(
     icon: ImageVector,
     label: String,
-    iconSize: Dp
+    iconSize: Dp,
+    onClick: () -> Unit = {}
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { }
+        modifier = Modifier.clickable(onClick = onClick)
     ) {
         Surface(
             modifier = Modifier.size(iconSize + 24.dp),
