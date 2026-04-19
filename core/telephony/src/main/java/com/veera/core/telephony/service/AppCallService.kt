@@ -3,6 +3,7 @@ package com.veera.core.telephony.service
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.InCallService
+import com.veera.core.telephony.notification.CallNotificationManager
 import com.veera.core.telephony.repository.CallRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -18,11 +19,25 @@ class AppCallService : InCallService() {
     @Inject
     lateinit var callRepository: CallRepository
 
+    @Inject
+    lateinit var notificationManager: CallNotificationManager
+
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
 
     override fun onCreate() {
         super.onCreate()
         observeAudioRequests()
+        observeCallInfo()
+    }
+
+    private fun observeCallInfo() {
+        callRepository.callerName
+            .onEach { name ->
+                if (callRepository.callState.value == Call.STATE_RINGING) {
+                    notificationManager.showIncomingCallNotification(name, callRepository.callerNumber.value)
+                }
+            }
+            .launchIn(serviceScope)
     }
 
     private fun observeAudioRequests() {
@@ -39,12 +54,18 @@ class AppCallService : InCallService() {
         super.onCallAdded(call)
         callRepository.updateCall(call)
         callRepository.registerCallback(call)
+        
+        if (call.state == Call.STATE_RINGING) {
+            val number = call.details.handle?.schemeSpecificPart ?: ""
+            notificationManager.showIncomingCallNotification("Incoming Call", number)
+        }
     }
 
     override fun onCallRemoved(call: Call) {
         super.onCallRemoved(call)
         callRepository.unregisterCallback(call)
         callRepository.updateCall(null)
+        notificationManager.cancelNotification()
     }
 
     override fun onCallAudioStateChanged(audioState: CallAudioState) {

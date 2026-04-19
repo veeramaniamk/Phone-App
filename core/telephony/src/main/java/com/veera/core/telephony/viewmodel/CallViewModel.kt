@@ -43,19 +43,7 @@ class CallViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Connecting...")
 
     init {
-        // Resolve name when number changes
-        viewModelScope.launch {
-            callerNumber.collect { number ->
-                if (number.isNotEmpty()) {
-                    val name = callLogRepository.getContactName(number)
-                    if (name != null) {
-                        callRepository.setCallerInfo(name, number)
-                    } else {
-                        callRepository.setCallerInfo("Unknown", number)
-                    }
-                }
-            }
-        }
+        // Name resolution is now handled by CallRepository
     }
 
     @RequiresPermission(Manifest.permission.CALL_PHONE)

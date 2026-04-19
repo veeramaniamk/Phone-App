@@ -3,15 +3,22 @@ package com.veera.core.telephony.repository
 import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.VideoProfile
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class CallRepository @Inject constructor() {
+class CallRepository @Inject constructor(
+    private val callLogRepository: CallLogRepository
+) {
+    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val _currentCall = MutableStateFlow<Call?>(null)
     val currentCall: StateFlow<Call?> = _currentCall
 
@@ -54,7 +61,20 @@ class CallRepository @Inject constructor() {
         }
 
         call?.details?.let { details ->
-            _callerNumber.value = details.handle?.schemeSpecificPart ?: ""
+            val number = details.handle?.schemeSpecificPart ?: ""
+            _callerNumber.value = number
+            resolveCallerName(number)
+        }
+    }
+
+    private fun resolveCallerName(number: String) {
+        if (number.isEmpty()) {
+            _callerName.value = "Unknown"
+            return
+        }
+        repositoryScope.launch {
+            val name = callLogRepository.getContactName(number)
+            _callerName.value = name ?: "Unknown"
         }
     }
     
