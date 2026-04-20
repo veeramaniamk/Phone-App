@@ -12,6 +12,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
+import android.content.Context
+import android.os.PowerManager
 
 @AndroidEntryPoint
 class AppCallService : InCallService() {
@@ -23,9 +25,19 @@ class AppCallService : InCallService() {
     lateinit var notificationManager: CallNotificationManager
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    private var proximityWakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
+        
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (powerManager.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
+            proximityWakeLock = powerManager.newWakeLock(
+                PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK,
+                "AppCallService:ProximityWakeLock"
+            )
+        }
+        
         observeAudioRequests()
         observeCallInfo()
     }
@@ -43,10 +55,16 @@ class AppCallService : InCallService() {
                         notificationManager.showIncomingCallNotification(name, number, photoUri)
                     }
                     Call.STATE_ACTIVE -> {
+                        if (proximityWakeLock?.isHeld == false) {
+                            proximityWakeLock?.acquire()
+                        }
                         val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
                         notificationManager.showOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri)
                     }
                     Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> {
+                        if (proximityWakeLock?.isHeld == true) {
+                            proximityWakeLock?.release()
+                        }
                         notificationManager.cancelNotification()
                     }
                 }
@@ -115,5 +133,12 @@ class AppCallService : InCallService() {
     override fun onCallAudioStateChanged(audioState: CallAudioState) {
         super.onCallAudioStateChanged(audioState)
         callRepository.updateAudioState(audioState)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (proximityWakeLock?.isHeld == true) {
+            proximityWakeLock?.release()
+        }
     }
 }
