@@ -8,17 +8,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.veera.core.telephony.repository.CallLogEntry
 import com.veera.core.telephony.repository.CallLogRepository
+import com.veera.core.telephony.repository.CallRepository
 import com.veera.feature.home.ui.CallType
 import com.veera.feature.home.ui.RecentCall
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val callLogRepository: CallLogRepository
+    private val callLogRepository: CallLogRepository,
+    private val callRepository: CallRepository
 ) : ViewModel() {
 
     // Main list state
@@ -44,6 +48,28 @@ class HomeViewModel @Inject constructor(
 
     init {
         updateMetrics()
+        observeCallFinished()
+    }
+
+    private fun observeCallFinished() {
+        callRepository.callFinishedEvent
+            .onEach {
+                delay(1000) // Small delay to let system write to call log
+                refreshLogs()
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun refreshLogs() {
+        viewModelScope.launch {
+            page = 0
+            isEndReached.value = false
+            val firstPage = callLogRepository.getCallLogs(0, pageSize)
+            allRecents.clear()
+            allRecents.addAll(firstPage.map { it.toRecentCall() })
+            page = 1
+            updateMetrics()
+        }
     }
 
     private fun updateMetrics() {
@@ -129,7 +155,9 @@ class HomeViewModel @Inject constructor(
             number = number,
             timestamp = formatTimestamp(date),
             type = mapCallType(type),
-            isMissed = type == CallLog.Calls.MISSED_TYPE
+            isMissed = type == CallLog.Calls.MISSED_TYPE,
+            photoUri = photoUri,
+            contactId = contactId
         )
     }
 

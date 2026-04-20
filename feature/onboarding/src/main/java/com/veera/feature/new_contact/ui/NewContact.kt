@@ -33,6 +33,7 @@ import com.veera.core.theme.DialerTheme
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun NewContactScreen(
+    initialNumber: String = "",
     onDismiss: () -> Unit,
     onSave: (String, String, String) -> Unit,
     isDarkModeEnabled: Boolean = isSystemInDarkTheme()
@@ -40,7 +41,7 @@ fun NewContactScreen(
     DialerTheme(darkTheme = isDarkModeEnabled) {
         var firstName by remember { mutableStateOf("") }
         var lastName by remember { mutableStateOf("") }
-        var phoneNumber by remember { mutableStateOf("") }
+        var phoneNumber by remember { mutableStateOf(initialNumber) }
         
         var isVisible by remember { mutableStateOf(false) }
         

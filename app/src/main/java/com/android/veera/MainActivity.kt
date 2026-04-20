@@ -1,7 +1,5 @@
 package com.android.veera
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.telecom.Call
 import androidx.activity.ComponentActivity
@@ -15,11 +13,11 @@ import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
 import com.veera.core.theme.DialerTheme
 import com.veera.core.util.DialerManager
 import com.veera.feature.contact.ui.ContactScreen
@@ -29,7 +27,16 @@ import com.veera.feature.splash.ui.SplashScreen
 import com.veera.feature.ongoing.ui.OngoingCallScreen
 import com.veera.feature.incommingcall.ui.IncomingCallScreen
 import com.veera.core.telephony.viewmodel.CallViewModel
+import com.veera.feature.new_contact.ui.NewContactScreen
+import com.veera.core.telephony.model.Contact
+import com.veera.feature.contact.ui.ContactsViewModel
+import com.veera.feature.contact_detail.ui.ContactDetailScreen
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import androidx.hilt.navigation.compose.hiltViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -44,11 +51,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             DialerTheme {
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Splash) }
+                var currentScreen by rememberSaveable { mutableStateOf(Screen.Splash) }
                 val callState by callViewModel.callState.collectAsState()
                 val callerName by callViewModel.callerName.collectAsState()
                 val callerNumber by callViewModel.callerNumber.collectAsState()
-                val context = LocalContext.current
+                val callStatus by callViewModel.callStatusString.collectAsState()
+                val isMuted by callViewModel.isMuted.collectAsState()
+                val isSpeakerOn by callViewModel.isSpeakerOn.collectAsState()
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
@@ -83,16 +92,8 @@ class MainActivity : ComponentActivity() {
                             }
                             Screen.MainContainer -> {
                                 MainContainer(
-                                    onCallClick = { number -> if (ActivityCompat.checkSelfPermission(
-                                            context,
-                                            Manifest.permission.CALL_PHONE
-                                        ) != PackageManager.PERMISSION_GRANTED
-                                    ) {
-
-                                        return@MainContainer
-                                    }
-                                        callViewModel.makeCall(number)
-                                    }
+                                    onCallClick = { number -> callViewModel.makeCall(number) },
+                                    callViewModel = callViewModel
                                 )
                             }
                         }
@@ -113,12 +114,19 @@ class MainActivity : ComponentActivity() {
                                     onDecline = { callViewModel.rejectCall() }
                                 )
                             }
-                            Call.STATE_ACTIVE, Call.STATE_DIALING, Call.STATE_CONNECTING -> {
-                                OngoingCallScreen(
-                                    name = callerName,
-                                    number = callerNumber,
-                                    onEndCall = { callViewModel.disconnectCall() }
-                                )
+                            else -> {
+                                if (callState != Call.STATE_DISCONNECTED) {
+                                    OngoingCallScreen(
+                                        name = callerName,
+                                        number = callerNumber,
+                                        status = callStatus,
+                                        isMuted = isMuted,
+                                        isSpeakerOn = isSpeakerOn,
+                                        onMuteClick = { callViewModel.toggleMute() },
+                                        onSpeakerClick = { callViewModel.toggleSpeaker() },
+                                        onEndCall = { callViewModel.disconnectCall() }
+                                    )
+                                }
                             }
                         }
                     }
@@ -129,8 +137,34 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainContainer(onCallClick: (String) -> Unit) {
-    var currentTab by remember { mutableStateOf(BottomTab.Recents) }
+fun MainContainer(
+    onCallClick: (String) -> Unit,
+    callViewModel: CallViewModel
+) {
+    var currentTab by rememberSaveable { mutableStateOf(BottomTab.Recents) }
+    var selectedContact by remember { mutableStateOf<Contact?>(null) }
+    var showNewContact by remember { mutableStateOf<String?>(null) } // value is the number to pre-fill
+    val contactsViewModel: ContactsViewModel = hiltViewModel()
+    val context = LocalContext.current
+
+    val onMessageClick: (String) -> Unit = { number ->
+        val intent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("smsto:$number")
+        }
+        context.startActivity(intent)
+    }
+
+    val scope = rememberCoroutineScope()
+
+    androidx.activity.compose.BackHandler(enabled = selectedContact != null || showNewContact != null || currentTab != BottomTab.Recents) {
+        if (selectedContact != null) {
+            selectedContact = null
+        } else if (showNewContact != null) {
+            showNewContact = null
+        } else {
+            currentTab = BottomTab.Recents
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -172,10 +206,67 @@ fun MainContainer(onCallClick: (String) -> Unit) {
             ) { tab ->
                 when (tab) {
                     BottomTab.Recents -> HomeScreen(
-                        onCallClick = { call -> onCallClick(call.number) },
-                        onDialpadCall = { number -> onCallClick(number) }
+                        onContactDetailClick = { recentCall ->
+                            if (recentCall.contactId != null) {
+                                scope.launch {
+                                    selectedContact = contactsViewModel.fetchContactById(recentCall.contactId!!)
+                                }
+                            }
+                        },
+                        onDialpadCall = { number -> onCallClick(number) },
+                        onNavigateToCreateContact = { number -> showNewContact = number }
                     )
-                    BottomTab.Contacts -> ContactScreen()
+                    BottomTab.Contacts -> ContactScreen(
+                        onContactClick = { contact ->
+                            selectedContact = contact
+                        }
+                    )
+                }
+            }
+
+            // Page Overlays with Slide Animation
+            Box(modifier = Modifier.fillMaxSize()) {
+                AnimatedContent(
+                    targetState = selectedContact,
+                    transitionSpec = {
+                        if (targetState != null) {
+                            slideInHorizontally { it } + fadeIn() togetherWith
+                                    slideOutHorizontally { it } + fadeOut()
+                        } else {
+                            slideInHorizontally { -it } + fadeIn() togetherWith
+                                    slideOutHorizontally { it } + fadeOut()
+                        }
+                    },
+                    label = "DetailTransition"
+                ) { contact ->
+                    if (contact != null) {
+                        ContactDetailScreen(
+                            contact = contact,
+                            onBackClick = { selectedContact = null },
+                            onCallClick = onCallClick,
+                            onMessageClick = onMessageClick,
+                            viewModel = contactsViewModel
+                        )
+                    }
+                }
+
+                AnimatedContent(
+                    targetState = showNewContact,
+                    transitionSpec = {
+                        slideInVertically { it } + fadeIn() togetherWith
+                                slideOutVertically { it } + fadeOut()
+                    },
+                    label = "NewContactTransition"
+                ) { number ->
+                    if (number != null) {
+                        NewContactScreen(
+                            initialNumber = number,
+                            onDismiss = { showNewContact = null },
+                            onSave = { first, last, phone ->
+                                showNewContact = null
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -187,8 +278,8 @@ enum class BottomTab(val title: String, val icon: ImageVector) {
     Contacts("Contacts", Icons.Default.Contacts)
 }
 
-sealed class Screen {
-    object Splash : Screen()
-    object Onboarding : Screen()
-    object MainContainer : Screen()
+enum class Screen {
+    Splash,
+    Onboarding,
+    MainContainer
 }

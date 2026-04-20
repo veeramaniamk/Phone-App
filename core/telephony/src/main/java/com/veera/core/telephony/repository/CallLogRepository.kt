@@ -16,13 +16,17 @@ data class CallLogEntry(
     val number: String,
     val date: Long,
     val type: Int,
-    val duration: Long
+    val duration: Long,
+    val photoUri: String? = null,
+    val contactId: String? = null
 )
 
 data class DialpadSuggestion(
     val name: String,
     val number: String,
-    val source: String // "Recent" or "Contact"
+    val source: String, // "Recent" or "Contact"
+    val photoUri: String? = null,
+    val contactId: String? = null
 )
 
 @Singleton
@@ -37,7 +41,9 @@ class CallLogRepository @Inject constructor(
             CallLog.Calls.NUMBER,
             CallLog.Calls.DATE,
             CallLog.Calls.TYPE,
-            CallLog.Calls.DURATION
+            CallLog.Calls.DURATION,
+            CallLog.Calls.CACHED_PHOTO_URI,
+            CallLog.Calls.CACHED_LOOKUP_URI
         )
 
         val sortOrder = "${CallLog.Calls.DATE} DESC"
@@ -62,12 +68,15 @@ class CallLogRepository @Inject constructor(
                         val date = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DATE))
                         val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
                         val duration = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DURATION))
+                        val photoUri = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
 
                         if (name.isNullOrEmpty()) {
                             name = getContactName(number)
                         }
+                        
+                        val contactId = getContactId(number)
 
-                        list.add(CallLogEntry(id, name, number, date, type, duration))
+                        list.add(CallLogEntry(id, name, number, date, type, duration, photoUri, contactId))
                         count++
                     } while (it.moveToNext() && count < pageSize)
                 }
@@ -86,7 +95,8 @@ class CallLogRepository @Inject constructor(
             CallLog.Calls.NUMBER,
             CallLog.Calls.DATE,
             CallLog.Calls.TYPE,
-            CallLog.Calls.DURATION
+            CallLog.Calls.DURATION,
+            CallLog.Calls.CACHED_PHOTO_URI
         )
 
         val selection = "${CallLog.Calls.NUMBER} LIKE ? OR ${CallLog.Calls.CACHED_NAME} LIKE ?"
@@ -113,12 +123,15 @@ class CallLogRepository @Inject constructor(
                         val date = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DATE))
                         val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
                         val duration = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DURATION))
+                        val photoUri = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
 
                         if (name.isNullOrEmpty()) {
                             name = getContactName(number)
                         }
+                        
+                        val contactId = getContactId(number)
 
-                        list.add(CallLogEntry(id, name, number, date, type, duration))
+                        list.add(CallLogEntry(id, name, number, date, type, duration, photoUri, contactId))
                         count++
                     } while (it.moveToNext() && count < pageSize)
                 }
@@ -154,7 +167,8 @@ class CallLogRepository @Inject constructor(
         // 1. Search in Recent Calls
         val recentProjection = arrayOf(
             CallLog.Calls.CACHED_NAME,
-            CallLog.Calls.NUMBER
+            CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_PHOTO_URI
         )
         val recentSelection = "${CallLog.Calls.NUMBER} LIKE ?"
         val recentArgs = arrayOf("%$query%")
@@ -173,9 +187,12 @@ class CallLogRepository @Inject constructor(
                     do {
                         val number = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
                         var name = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME))
-                        if (name.isNullOrEmpty()) name = getContactName(number)
+                        val photoUri = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
                         
-                        suggestions.add(DialpadSuggestion(name ?: number, number, "Recent"))
+                        if (name.isNullOrEmpty()) name = getContactName(number)
+                        val contactId = getContactId(number)
+                        
+                        suggestions.add(DialpadSuggestion(name ?: number, number, "Recent", photoUri, contactId))
                         count++
                     } while (cursor.moveToNext() && count < pageSize)
                 }
@@ -183,10 +200,12 @@ class CallLogRepository @Inject constructor(
         } catch (e: Exception) { e.printStackTrace() }
 
         // 2. Search in Contacts (if suggestions from recents are not enough)
-        if (suggestions.size < pageSize) {
+        if (suggestions.size < (page + 1) * pageSize) {
             val contactProjection = arrayOf(
                 ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Phone.NUMBER
+                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID
             )
             val contactSelection = "${ContactsContract.CommonDataKinds.Phone.NUMBER} LIKE ? OR ${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?"
             val contactArgs = arrayOf("%$query%", "%$query%")
@@ -202,10 +221,12 @@ class CallLogRepository @Inject constructor(
                     while (cursor.moveToNext() && suggestions.size < (page + 1) * pageSize) {
                         val name = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME))
                         val number = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER))
+                        val photoUri = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI))
+                        val contactId = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.CONTACT_ID))
                         
                         // Avoid duplicates
                         if (suggestions.none { it.number == number }) {
-                            suggestions.add(DialpadSuggestion(name, number, "Contact"))
+                            suggestions.add(DialpadSuggestion(name, number, "Contact", photoUri, contactId))
                         }
                     }
                 }
@@ -215,7 +236,27 @@ class CallLogRepository @Inject constructor(
         suggestions.distinctBy { it.number }
     }
 
-    private fun getContactName(phoneNumber: String): String? {
+    fun getContactId(phoneNumber: String): String? {
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(phoneNumber)
+        )
+        val projection = arrayOf(ContactsContract.PhoneLookup._ID)
+        var contactId: String? = null
+        try {
+            val cursor = context.contentResolver.query(uri, projection, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    contactId = it.getString(it.getColumnIndexOrThrow(ContactsContract.PhoneLookup._ID))
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return contactId
+    }
+
+    fun getContactName(phoneNumber: String): String? {
         val uri = Uri.withAppendedPath(
             ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
             Uri.encode(phoneNumber)

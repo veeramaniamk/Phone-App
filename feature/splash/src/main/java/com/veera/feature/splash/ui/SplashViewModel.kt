@@ -12,7 +12,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SplashViewModel @Inject constructor() : ViewModel() {
 
-    private val _navigateToNext = MutableSharedFlow<Unit>()
+    private val _navigateToNext = MutableSharedFlow<Unit>(replay = 1)
     val navigateToNext = _navigateToNext.asSharedFlow()
 
     init {
@@ -21,8 +21,9 @@ class SplashViewModel @Inject constructor() : ViewModel() {
 
     private fun startSplashTimer() {
         viewModelScope.launch {
-            delay(3000)
+            delay(1000)
             _navigateToNext.emit(Unit)
         }
     }
+
 }

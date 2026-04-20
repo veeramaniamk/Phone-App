@@ -1,7 +1,6 @@
 package com.veera.feature.splash.ui
 
 import android.annotation.SuppressLint
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -61,8 +60,7 @@ fun SplashScreen(
             val iconSize = if (screenHeight > 800.dp) 140.dp else 110.dp
             val logoIconSize = if (screenHeight > 800.dp) 70.dp else 56.dp
             val titleSize = if (screenWidth > 400.dp) 36.sp else 28.sp
-            val subtitleSize = if (screenWidth > 400.dp) 14.sp else 12.sp
-            
+
             val contentAlpha by animateFloatAsState(
                 targetValue = if (startAnimation) 1f else 0f,
                 animationSpec = tween(1000),
@@ -118,16 +116,6 @@ fun SplashScreen(
                     )
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "— LUMINOUS CONCIERGE —",
-                    style = AppTheme.typography.labelMedium.copy(
-                        color = AppTheme.colors.TextSecondary,
-                        letterSpacing = 3.sp,
-                        fontSize = subtitleSize
-                    )
-                )
             }
 
             // Bottom progress bar and version
