@@ -128,14 +128,23 @@ fun ContactDetailScreen(
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = contact.initial,
-                                    style = AppTheme.typography.titleLarge.copy(
-                                        fontSize = (avatarSize.value * 0.4).sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
+                                if (contact.photoUri != null) {
+                                    coil.compose.AsyncImage(
+                                        model = contact.photoUri,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                     )
-                                )
+                                } else {
+                                    Text(
+                                        text = contact.initial,
+                                        style = AppTheme.typography.titleLarge.copy(
+                                            fontSize = (avatarSize.value * 0.4).sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+                                }
                             }
                         }
                         

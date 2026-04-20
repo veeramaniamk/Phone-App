@@ -36,14 +36,15 @@ class AppCallService : InCallService() {
                 val name = callRepository.callerName.value
                 val number = callRepository.callerNumber.value
                 val isSpeakerOn = callRepository.isSpeakerOn.value
+                val photoUri = callRepository.callerPhotoUri.value
                 
                 when (state) {
                     Call.STATE_RINGING -> {
-                        notificationManager.showIncomingCallNotification(name, number)
+                        notificationManager.showIncomingCallNotification(name, number, photoUri)
                     }
                     Call.STATE_ACTIVE -> {
                         val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
-                        notificationManager.showOngoingCallNotification(name, number, isSpeakerOn, connectTime)
+                        notificationManager.showOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri)
                     }
                     Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> {
                         notificationManager.cancelNotification()
@@ -60,7 +61,8 @@ class AppCallService : InCallService() {
                         callRepository.callerName.value,
                         callRepository.callerNumber.value,
                         isSpeakerOn,
-                        connectTime
+                        connectTime,
+                        callRepository.callerPhotoUri.value
                     )
                 }
             }
@@ -74,7 +76,8 @@ class AppCallService : InCallService() {
                         name,
                         callRepository.callerNumber.value,
                         callRepository.isSpeakerOn.value,
-                        connectTime
+                        connectTime,
+                        callRepository.callerPhotoUri.value
                     )
                 }
             }
@@ -98,7 +101,7 @@ class AppCallService : InCallService() {
         
         if (call.state == Call.STATE_RINGING) {
             val number = call.details.handle?.schemeSpecificPart ?: ""
-            notificationManager.showIncomingCallNotification("Incoming Call", number)
+            notificationManager.showIncomingCallNotification("Incoming Call", number, null)
         }
     }
 

@@ -43,7 +43,8 @@ import com.veera.core.theme.AppTheme
     horizontalPadding: Dp,
     height: Dp,
     avatarSize: Dp,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onCallIconClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier
@@ -130,7 +131,7 @@ import com.veera.core.theme.AppTheme
 
         // Action Button (Call Icon)
         IconButton(
-            onClick = { /* Handle call action if needed separately */ },
+            onClick = onCallIconClick,
             modifier = Modifier
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))

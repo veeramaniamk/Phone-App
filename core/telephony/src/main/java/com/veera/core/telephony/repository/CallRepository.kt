@@ -31,6 +31,9 @@ class CallRepository @Inject constructor(
     private val _callerNumber = MutableStateFlow<String>("")
     val callerNumber: StateFlow<String> = _callerNumber
 
+    private val _callerPhotoUri = MutableStateFlow<String?>(null)
+    val callerPhotoUri: StateFlow<String?> = _callerPhotoUri
+
     // Audio State
     private val _isMuted = MutableStateFlow(false)
     val isMuted: StateFlow<Boolean> = _isMuted
@@ -75,12 +78,15 @@ class CallRepository @Inject constructor(
         repositoryScope.launch {
             val name = callLogRepository.getContactName(number)
             _callerName.value = name ?: "Unknown"
+            val photoUri = callLogRepository.getContactPhotoUri(number)
+            _callerPhotoUri.value = photoUri
         }
     }
     
-    fun setCallerInfo(name: String, number: String) {
+    fun setCallerInfo(name: String, number: String, photoUri: String? = null) {
         _callerName.value = name
         _callerNumber.value = number
+        _callerPhotoUri.value = photoUri
     }
 
     private val callCallback = object : Call.Callback() {

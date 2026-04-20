@@ -68,10 +68,14 @@ class CallLogRepository @Inject constructor(
                         val date = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DATE))
                         val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
                         val duration = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DURATION))
-                        val photoUri = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
+                        var photoUri = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
 
                         if (name.isNullOrEmpty()) {
                             name = getContactName(number)
+                        }
+                        
+                        if (photoUri.isNullOrEmpty()) {
+                            photoUri = getContactPhotoUri(number)
                         }
                         
                         val contactId = getContactId(number)
@@ -123,10 +127,14 @@ class CallLogRepository @Inject constructor(
                         val date = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DATE))
                         val type = it.getInt(it.getColumnIndexOrThrow(CallLog.Calls.TYPE))
                         val duration = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DURATION))
-                        val photoUri = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
+                        var photoUri = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
 
                         if (name.isNullOrEmpty()) {
                             name = getContactName(number)
+                        }
+                        
+                        if (photoUri.isNullOrEmpty()) {
+                            photoUri = getContactPhotoUri(number)
                         }
                         
                         val contactId = getContactId(number)
@@ -187,9 +195,10 @@ class CallLogRepository @Inject constructor(
                     do {
                         val number = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
                         var name = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME))
-                        val photoUri = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
+                        var photoUri = cursor.getString(cursor.getColumnIndexOrThrow(CallLog.Calls.CACHED_PHOTO_URI))
                         
                         if (name.isNullOrEmpty()) name = getContactName(number)
+                        if (photoUri.isNullOrEmpty()) photoUri = getContactPhotoUri(number)
                         val contactId = getContactId(number)
                         
                         suggestions.add(DialpadSuggestion(name ?: number, number, "Recent", photoUri, contactId))
@@ -274,5 +283,25 @@ class CallLogRepository @Inject constructor(
             e.printStackTrace()
         }
         return contactName
+    }
+
+    fun getContactPhotoUri(phoneNumber: String): String? {
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(phoneNumber)
+        )
+        val projection = arrayOf(ContactsContract.PhoneLookup.PHOTO_URI)
+        var photoUri: String? = null
+        try {
+            val cursor = context.contentResolver.query(uri, projection, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    photoUri = it.getString(it.getColumnIndexOrThrow(ContactsContract.PhoneLookup.PHOTO_URI))
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return photoUri
     }
 }

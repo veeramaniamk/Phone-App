@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
                 val callState by callViewModel.callState.collectAsState()
                 val callerName by callViewModel.callerName.collectAsState()
                 val callerNumber by callViewModel.callerNumber.collectAsState()
+                val callerPhotoUri by callViewModel.callerPhotoUri.collectAsState()
                 val callStatus by callViewModel.callStatusString.collectAsState()
                 val isMuted by callViewModel.isMuted.collectAsState()
                 val isSpeakerOn by callViewModel.isSpeakerOn.collectAsState()
@@ -114,6 +115,7 @@ class MainActivity : ComponentActivity() {
                                 IncomingCallScreen(
                                     name = callerName,
                                     number = callerNumber,
+                                    photoUri = callerPhotoUri,
                                     onAccept = { callViewModel.answerCall() },
                                     onDecline = { callViewModel.rejectCall() }
                                 )
@@ -124,11 +126,13 @@ class MainActivity : ComponentActivity() {
                                         name = callerName,
                                         number = callerNumber,
                                         status = callStatus,
+                                        photoUri = callerPhotoUri,
                                         isMuted = isMuted,
                                         isSpeakerOn = isSpeakerOn,
                                         onMuteClick = { callViewModel.toggleMute() },
                                         onSpeakerClick = { callViewModel.toggleSpeaker() },
-                                        onEndCall = { callViewModel.disconnectCall() }
+                                        onEndCall = { callViewModel.disconnectCall() },
+                                        connectTimeMillis = callViewModel.currentCall.value?.details?.connectTimeMillis ?: 0L
                                     )
                                 }
                             }
@@ -155,7 +159,8 @@ class MainActivity : ComponentActivity() {
                 callViewModel.callerName.value,
                 callViewModel.callerNumber.value,
                 callViewModel.isSpeakerOn.value,
-                connectTime
+                connectTime,
+                callViewModel.callerPhotoUri.value
             )
         }
     }
