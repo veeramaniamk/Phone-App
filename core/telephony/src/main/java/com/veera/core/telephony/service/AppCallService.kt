@@ -31,10 +31,51 @@ class AppCallService : InCallService() {
     }
 
     private fun observeCallInfo() {
+        callRepository.callState
+            .onEach { state ->
+                val name = callRepository.callerName.value
+                val number = callRepository.callerNumber.value
+                val isSpeakerOn = callRepository.isSpeakerOn.value
+                
+                when (state) {
+                    Call.STATE_RINGING -> {
+                        notificationManager.showIncomingCallNotification(name, number)
+                    }
+                    Call.STATE_ACTIVE -> {
+                        val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+                        notificationManager.showOngoingCallNotification(name, number, isSpeakerOn, connectTime)
+                    }
+                    Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> {
+                        notificationManager.cancelNotification()
+                    }
+                }
+            }
+            .launchIn(serviceScope)
+
+        callRepository.isSpeakerOn
+            .onEach { isSpeakerOn ->
+                if (callRepository.callState.value == Call.STATE_ACTIVE) {
+                    val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+                    notificationManager.showOngoingCallNotification(
+                        callRepository.callerName.value,
+                        callRepository.callerNumber.value,
+                        isSpeakerOn,
+                        connectTime
+                    )
+                }
+            }
+            .launchIn(serviceScope)
+            
         callRepository.callerName
             .onEach { name ->
-                if (callRepository.callState.value == Call.STATE_RINGING) {
-                    notificationManager.showIncomingCallNotification(name, callRepository.callerNumber.value)
+                if (callRepository.callState.value == Call.STATE_ACTIVE) {
+                    val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+                    notificationManager.showOngoingCallNotification(
+                        name,
+                        callRepository.callerNumber.value,
+                        callRepository.isSpeakerOn.value,
+                        connectTime
+                    )
                 }
             }
             .launchIn(serviceScope)

@@ -19,6 +19,7 @@ class CallNotificationManager @Inject constructor(
 {
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val CHANNEL_ID = "incoming_calls"
+    private val ONGOING_CHANNEL_ID = "ongoing_calls"
     private val NOTIFICATION_ID = 1001
 
     init {
@@ -27,7 +28,7 @@ class CallNotificationManager @Inject constructor(
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
+            val incomingChannel = NotificationChannel(
                 CHANNEL_ID,
                 "Incoming Calls",
                 NotificationManager.IMPORTANCE_HIGH
@@ -35,9 +36,21 @@ class CallNotificationManager @Inject constructor(
                 description = "Shows incoming call notifications"
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 enableVibration(true)
-                setSound(null, null) // Use system default or custom
+                setSound(null, null)
             }
-            notificationManager.createNotificationChannel(channel)
+            
+            val ongoingChannel = NotificationChannel(
+                ONGOING_CHANNEL_ID,
+                "Ongoing Calls",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shows ongoing call status"
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                setSound(null, null)
+            }
+            
+            notificationManager.createNotificationChannel(incomingChannel)
+            notificationManager.createNotificationChannel(ongoingChannel)
         }
     }
 
@@ -84,6 +97,61 @@ class CallNotificationManager @Inject constructor(
             .setAutoCancel(false)
             .addAction(android.R.drawable.ic_menu_call, "Answer", answerPendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePendingIntent)
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    fun showOngoingCallNotification(callerName: String, callerNumber: String, isSpeakerOn: Boolean, connectTime: Long) {
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("EXTRA_SHOW_ONGOING_CALL", true)
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+
+        val speakerIntent = Intent(context, CallActionReceiver::class.java).apply {
+            action = "ACTION_TOGGLE_SPEAKER"
+        }
+        val speakerPendingIntent = PendingIntent.getBroadcast(
+            context,
+            3,
+            speakerIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+
+        val endCallIntent = Intent(context, CallActionReceiver::class.java).apply {
+            action = "ACTION_DISCONNECT"
+        }
+        val endCallPendingIntent = PendingIntent.getBroadcast(
+            context,
+            4,
+            endCallIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+
+        val speakerText = if (isSpeakerOn) "Speaker Off" else "Speaker On"
+        val speakerIcon = if (isSpeakerOn) android.R.drawable.stat_sys_speakerphone else android.R.drawable.ic_btn_speak_now
+
+        val notification = NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setContentTitle("Ongoing Call")
+            .setContentText("$callerName • $callerNumber")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setOngoing(true)
+            .setWhen(connectTime)
+            .setUsesChronometer(true)
+            .setShowWhen(true)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true) // User requested to close notification on click
+            .addAction(speakerIcon, speakerText, speakerPendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End Call", endCallPendingIntent)
             .build()
 
         notificationManager.notify(NOTIFICATION_ID, notification)
