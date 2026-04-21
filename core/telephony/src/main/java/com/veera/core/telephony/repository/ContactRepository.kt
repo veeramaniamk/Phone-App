@@ -290,4 +290,159 @@ class ContactRepository @Inject constructor(
         } catch (e: Exception) { e.printStackTrace() }
         list
     }
+
+    suspend fun findContactByNumber(number: String): Contact? = withContext(Dispatchers.IO) {
+        val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.RawContacts.ACCOUNT_NAME,
+            ContactsContract.RawContacts.ACCOUNT_TYPE
+        )
+        
+        // Remove non-digit characters for matching
+        val normalizedNumber = number.replace(Regex("[^0-9]"), "")
+        if (normalizedNumber.isEmpty()) return@withContext null
+        
+        // Check for contacts that match this number
+        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            val numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            val idIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+            val accNameIdx = cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_NAME)
+            val accTypeIdx = cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_TYPE)
+            
+            while (cursor.moveToNext()) {
+                val dbNumber = cursor.getString(numIdx) ?: ""
+                val dbNormalized = dbNumber.replace(Regex("[^0-9]"), "")
+                
+                if (dbNormalized.takeLast(7) == normalizedNumber.takeLast(7)) {
+                    return@withContext Contact(
+                        id = cursor.getString(idIdx),
+                        name = cursor.getString(nameIdx) ?: "",
+                        number = dbNumber,
+                        accountName = cursor.getString(accNameIdx),
+                        accountType = cursor.getString(accTypeIdx)
+                    )
+                }
+            }
+        }
+        null
+    }
+
+    suspend fun findContactByName(name: String): Contact? = withContext(Dispatchers.IO) {
+        val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.RawContacts.ACCOUNT_NAME,
+            ContactsContract.RawContacts.ACCOUNT_TYPE
+        )
+        
+        // Use case-insensitive search
+        val selection = "UPPER(${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME}) = ?"
+        val selectionArgs = arrayOf(name.uppercase())
+
+        context.contentResolver.query(uri, projection, selection, selectionArgs, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val idIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+                val numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                val accNameIdx = cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_NAME)
+                val accTypeIdx = cursor.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_TYPE)
+                
+                return@withContext Contact(
+                    id = cursor.getString(idIdx),
+                    name = cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)) ?: name,
+                    number = cursor.getString(numIdx) ?: "",
+                    accountName = cursor.getString(accNameIdx),
+                    accountType = cursor.getString(accTypeIdx)
+                )
+            }
+        }
+        null
+    }
+
+    suspend fun saveContact(
+        firstName: String,
+        lastName: String,
+        phoneNumber: String,
+        email: String?,
+        photoUri: android.net.Uri?,
+        accountName: String?,
+        accountType: String?
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val operations = arrayListOf<android.content.ContentProviderOperation>()
+
+            // Add RAW_CONTACT
+            operations.add(
+                android.content.ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
+                    .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, accountType)
+                    .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, accountName)
+                    .build()
+            )
+
+            // Add Name
+            operations.add(
+                android.content.ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                    .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                    .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                    .withValue(ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME, firstName)
+                    .withValue(ContactsContract.CommonDataKinds.StructuredName.FAMILY_NAME, lastName)
+                    .build()
+            )
+
+            // Add Phone Number
+            operations.add(
+                android.content.ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                    .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                    .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
+                    .withValue(ContactsContract.CommonDataKinds.Phone.NUMBER, phoneNumber)
+                    .withValue(ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)
+                    .build()
+            )
+
+            // Add Email
+            if (!email.isNullOrBlank()) {
+                operations.add(
+                    android.content.ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                        .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                        .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE)
+                        .withValue(ContactsContract.CommonDataKinds.Email.ADDRESS, email)
+                        .withValue(ContactsContract.CommonDataKinds.Email.TYPE, ContactsContract.CommonDataKinds.Email.TYPE_WORK)
+                        .build()
+                )
+            }
+
+            // Add Photo
+            if (photoUri != null) {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(photoUri)
+                    val photoBytes = inputStream?.readBytes()
+                    inputStream?.close()
+
+                    if (photoBytes != null) {
+                        operations.add(
+                            android.content.ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                                .withValue(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
+                                .withValue(ContactsContract.CommonDataKinds.Photo.PHOTO, photoBytes)
+                                .build()
+                        )
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            context.contentResolver.applyBatch(ContactsContract.AUTHORITY, operations)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
 }
