@@ -292,7 +292,7 @@ fun MainContainer(
                         NewContactScreen(
                             initialNumber = number,
                             onDismiss = { showNewContact = null },
-                            onSave = { first, last, phone ->
+                            onSave = { first, last, phone, saveLocation ->
                                 showNewContact = null
                             }
                         )
