@@ -128,7 +128,7 @@ fun ContactScreen(
             if (showNewContact) {
                 NewContactScreen(
                     onDismiss = { showNewContact = false },
-                    onSave = { first, last, phone ->
+                    onSave = { first, last, phone, saveLocation ->
                         showNewContact = false
                     },
                     isDarkModeEnabled = isDarkModeEnabled

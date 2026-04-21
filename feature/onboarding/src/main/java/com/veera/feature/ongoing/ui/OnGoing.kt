@@ -32,21 +32,28 @@ fun OngoingCallScreen(
     name: String,
     number: String,
     status: String,
+    photoUri: String? = null,
     isMuted: Boolean = false,
     isSpeakerOn: Boolean = false,
     onMuteClick: () -> Unit = {},
     onSpeakerClick: () -> Unit = {},
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
+    connectTimeMillis: Long = 0L,
     onEndCall: () -> Unit
 ) {
     var callDuration by remember { mutableLongStateOf(0L) }
     val isCallActive = status == "Connected"
     
-    LaunchedEffect(isCallActive) {
+    LaunchedEffect(isCallActive, connectTimeMillis) {
         if (isCallActive) {
             while (true) {
-                delay(1000)
-                callDuration++
+                val now = System.currentTimeMillis()
+                callDuration = if (connectTimeMillis > 0L) {
+                    (now - connectTimeMillis) / 1000
+                } else {
+                    0L
+                }
+                delay(500)
             }
         } else {
             callDuration = 0L
@@ -96,14 +103,23 @@ fun OngoingCallScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = name.take(1).uppercase(),
-                            style = AppTheme.typography.titleLarge.copy(
-                                fontSize = (avatarSize.value * 0.4).sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                        if (photoUri != null) {
+                            coil.compose.AsyncImage(
+                                model = photoUri,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
                             )
-                        )
+                        } else {
+                            Text(
+                                text = name.take(1).uppercase(),
+                                style = AppTheme.typography.titleLarge.copy(
+                                    fontSize = (avatarSize.value * 0.4).sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            )
+                        }
                     }
                 }
 

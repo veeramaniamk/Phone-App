@@ -32,7 +32,8 @@ fun RecentCallsList(
     viewModel: HomeViewModel,
     hasPermission: Boolean,
     onPermissionRequest: () -> Unit,
-    onCallClick: (RecentCall) -> Unit
+    onCallClick: (RecentCall) -> Unit,
+    onCallIconClick: (RecentCall) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     
@@ -125,7 +126,8 @@ fun RecentCallsList(
                             horizontalPadding = horizontalPadding,
                             height = itemHeight,
                             avatarSize = avatarSize,
-                            onClick = { onCallClick(call) }
+                            onClick = { onCallClick(call) },
+                            onCallIconClick = { onCallIconClick(call) }
                         )
                     }
 

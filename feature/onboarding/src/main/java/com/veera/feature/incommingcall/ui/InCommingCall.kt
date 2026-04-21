@@ -31,6 +31,7 @@ import com.veera.core.theme.DialerTheme
 fun IncomingCallScreen(
     name: String,
     number: String,
+    photoUri: String? = null,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
     isDarkModeEnabled: Boolean = isSystemInDarkTheme()
@@ -98,14 +99,23 @@ fun IncomingCallScreen(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = name.take(1).uppercase(),
-                                style = AppTheme.typography.titleLarge.copy(
-                                    fontSize = (avatarSize.value * 0.45).sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                            if (photoUri != null) {
+                                coil.compose.AsyncImage(
+                                    model = photoUri,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                 )
-                            )
+                            } else {
+                                Text(
+                                    text = name.take(1).uppercase(),
+                                    style = AppTheme.typography.titleLarge.copy(
+                                        fontSize = (avatarSize.value * 0.45).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                )
+                            }
                         }
                     }
 

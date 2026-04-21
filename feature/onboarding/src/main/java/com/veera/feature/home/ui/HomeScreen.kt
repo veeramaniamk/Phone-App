@@ -217,6 +217,9 @@ fun HomeScreen(
                                     },
                                     onCallClick = { call ->
                                         onContactDetailClick(call)
+                                    },
+                                    onCallIconClick = { call ->
+                                        onDialpadCall(call.number)
                                     }
                                 )
                             }

@@ -25,6 +25,7 @@ class CallViewModel @Inject constructor(
     val callState = callRepository.callState
     val callerName = callRepository.callerName
     val callerNumber = callRepository.callerNumber
+    val callerPhotoUri = callRepository.callerPhotoUri
     
     val isMuted = callRepository.isMuted
     val isSpeakerOn = callRepository.isSpeakerOn

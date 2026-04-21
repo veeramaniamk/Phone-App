@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
 import android.net.Uri
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.veera.core.telephony.notification.CallNotificationManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -44,6 +45,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var dialerManager: DialerManager
+    
+    @Inject
+    lateinit var notificationManager: CallNotificationManager
     
     private val callViewModel: CallViewModel by viewModels()
 
@@ -55,6 +59,7 @@ class MainActivity : ComponentActivity() {
                 val callState by callViewModel.callState.collectAsState()
                 val callerName by callViewModel.callerName.collectAsState()
                 val callerNumber by callViewModel.callerNumber.collectAsState()
+                val callerPhotoUri by callViewModel.callerPhotoUri.collectAsState()
                 val callStatus by callViewModel.callStatusString.collectAsState()
                 val isMuted by callViewModel.isMuted.collectAsState()
                 val isSpeakerOn by callViewModel.isSpeakerOn.collectAsState()
@@ -110,6 +115,7 @@ class MainActivity : ComponentActivity() {
                                 IncomingCallScreen(
                                     name = callerName,
                                     number = callerNumber,
+                                    photoUri = callerPhotoUri,
                                     onAccept = { callViewModel.answerCall() },
                                     onDecline = { callViewModel.rejectCall() }
                                 )
@@ -120,11 +126,13 @@ class MainActivity : ComponentActivity() {
                                         name = callerName,
                                         number = callerNumber,
                                         status = callStatus,
+                                        photoUri = callerPhotoUri,
                                         isMuted = isMuted,
                                         isSpeakerOn = isSpeakerOn,
                                         onMuteClick = { callViewModel.toggleMute() },
                                         onSpeakerClick = { callViewModel.toggleSpeaker() },
-                                        onEndCall = { callViewModel.disconnectCall() }
+                                        onEndCall = { callViewModel.disconnectCall() },
+                                        connectTimeMillis = callViewModel.currentCall.value?.details?.connectTimeMillis ?: 0L
                                     )
                                 }
                             }
@@ -132,6 +140,28 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+    override fun onStart() {
+        super.onStart()
+        // If we have an active call, cancel the notification when app starts/comes to foreground
+        if (callViewModel.callState.value == Call.STATE_ACTIVE) {
+            notificationManager.cancelNotification()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // If we have an active call, show the notification when app goes to background
+        if (callViewModel.callState.value == Call.STATE_ACTIVE) {
+            val connectTime = callViewModel.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+            notificationManager.showOngoingCallNotification(
+                callViewModel.callerName.value,
+                callViewModel.callerNumber.value,
+                callViewModel.isSpeakerOn.value,
+                connectTime,
+                callViewModel.callerPhotoUri.value
+            )
         }
     }
 }
@@ -262,7 +292,7 @@ fun MainContainer(
                         NewContactScreen(
                             initialNumber = number,
                             onDismiss = { showNewContact = null },
-                            onSave = { first, last, phone ->
+                            onSave = { first, last, phone, saveLocation ->
                                 showNewContact = null
                             }
                         )

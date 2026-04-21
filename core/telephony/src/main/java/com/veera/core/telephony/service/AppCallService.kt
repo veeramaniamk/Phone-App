@@ -12,6 +12,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
+import android.content.Context
+import android.os.PowerManager
 
 @AndroidEntryPoint
 class AppCallService : InCallService() {
@@ -23,18 +25,78 @@ class AppCallService : InCallService() {
     lateinit var notificationManager: CallNotificationManager
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    private var proximityWakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
+        
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (powerManager.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
+            proximityWakeLock = powerManager.newWakeLock(
+                PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK,
+                "AppCallService:ProximityWakeLock"
+            )
+        }
+        
         observeAudioRequests()
         observeCallInfo()
     }
 
     private fun observeCallInfo() {
+        callRepository.callState
+            .onEach { state ->
+                val name = callRepository.callerName.value
+                val number = callRepository.callerNumber.value
+                val isSpeakerOn = callRepository.isSpeakerOn.value
+                val photoUri = callRepository.callerPhotoUri.value
+                
+                when (state) {
+                    Call.STATE_RINGING -> {
+                        notificationManager.showIncomingCallNotification(name, number, photoUri)
+                    }
+                    Call.STATE_ACTIVE -> {
+                        if (proximityWakeLock?.isHeld == false) {
+                            proximityWakeLock?.acquire()
+                        }
+                        val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+                        notificationManager.showOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri)
+                    }
+                    Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> {
+                        if (proximityWakeLock?.isHeld == true) {
+                            proximityWakeLock?.release()
+                        }
+                        notificationManager.cancelNotification()
+                    }
+                }
+            }
+            .launchIn(serviceScope)
+
+        callRepository.isSpeakerOn
+            .onEach { isSpeakerOn ->
+                if (callRepository.callState.value == Call.STATE_ACTIVE) {
+                    val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+                    notificationManager.showOngoingCallNotification(
+                        callRepository.callerName.value,
+                        callRepository.callerNumber.value,
+                        isSpeakerOn,
+                        connectTime,
+                        callRepository.callerPhotoUri.value
+                    )
+                }
+            }
+            .launchIn(serviceScope)
+            
         callRepository.callerName
             .onEach { name ->
-                if (callRepository.callState.value == Call.STATE_RINGING) {
-                    notificationManager.showIncomingCallNotification(name, callRepository.callerNumber.value)
+                if (callRepository.callState.value == Call.STATE_ACTIVE) {
+                    val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+                    notificationManager.showOngoingCallNotification(
+                        name,
+                        callRepository.callerNumber.value,
+                        callRepository.isSpeakerOn.value,
+                        connectTime,
+                        callRepository.callerPhotoUri.value
+                    )
                 }
             }
             .launchIn(serviceScope)
@@ -57,7 +119,7 @@ class AppCallService : InCallService() {
         
         if (call.state == Call.STATE_RINGING) {
             val number = call.details.handle?.schemeSpecificPart ?: ""
-            notificationManager.showIncomingCallNotification("Incoming Call", number)
+            notificationManager.showIncomingCallNotification("Incoming Call", number, null)
         }
     }
 
@@ -71,5 +133,12 @@ class AppCallService : InCallService() {
     override fun onCallAudioStateChanged(audioState: CallAudioState) {
         super.onCallAudioStateChanged(audioState)
         callRepository.updateAudioState(audioState)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (proximityWakeLock?.isHeld == true) {
+            proximityWakeLock?.release()
+        }
     }
 }

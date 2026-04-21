@@ -1,4 +1,4 @@
-package com.veera.feature.new_contact.ui
+package com.veera.feature.contact_detail.ui
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.*
@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,19 +31,29 @@ import com.veera.core.theme.DialerTheme
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
-fun NewContactScreen(
-    initialNumber: String = "",
+fun EditContactScreen(
+    initialFirstName: String = "",
+    initialLastName: String = "",
+    initialPhoneNumber: String = "",
+    initialEmail: String = "",
+    initialSaveType: String = "Device",
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String) -> Unit,
+    onSave: (String, String, String, String) -> Unit, // firstName, lastName, phone, saveLocation
+    onDelete: () -> Unit,
     isDarkModeEnabled: Boolean = isSystemInDarkTheme()
 ) {
     DialerTheme(darkTheme = isDarkModeEnabled) {
-        var firstName by remember { mutableStateOf("") }
-        var lastName by remember { mutableStateOf("") }
-        var phoneNumber by remember { mutableStateOf(initialNumber) }
-        var email by remember { mutableStateOf("") }
-        var saveType by remember { mutableStateOf("Device") }
-        var googleEmail by remember { mutableStateOf("") }
+        var firstName by remember { mutableStateOf(initialFirstName) }
+        var lastName by remember { mutableStateOf(initialLastName) }
+        var phoneNumber by remember { mutableStateOf(initialPhoneNumber) }
+        var email by remember { mutableStateOf(initialEmail) }
+        
+        // Parse initial save type if it contains "Google: "
+        val initialType = if (initialSaveType.startsWith("Google:")) "Google" else if (initialSaveType.isBlank()) "Device" else initialSaveType
+        val initialGoogleEmail = if (initialSaveType.startsWith("Google:")) initialSaveType.substringAfter("Google:").trim() else ""
+        
+        var saveType by remember { mutableStateOf(initialType) }
+        var googleEmail by remember { mutableStateOf(initialGoogleEmail) }
         
         var isVisible by remember { mutableStateOf(false) }
         
@@ -102,7 +111,7 @@ fun NewContactScreen(
                             )
                         )
                         Text(
-                            text = "New Contact",
+                            text = "Edit Contact",
                             style = AppTheme.typography.titleLarge.copy(
                                 fontSize = titleSize,
                                 fontWeight = FontWeight.Bold,
@@ -140,7 +149,7 @@ fun NewContactScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "Add Photo",
+                            contentDescription = "Edit Photo",
                             modifier = Modifier.size(avatarSize / 2.5f),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -149,7 +158,7 @@ fun NewContactScreen(
                     Spacer(modifier = Modifier.height(40.dp))
 
                     // Input Fields
-                    ContactInputField(
+                    EditContactInputField(
                         value = firstName,
                         onValueChange = { firstName = it },
                         label = "First Name",
@@ -159,7 +168,7 @@ fun NewContactScreen(
                     
                     Spacer(modifier = Modifier.height(fieldSpacing))
                     
-                    ContactInputField(
+                    EditContactInputField(
                         value = lastName,
                         onValueChange = { lastName = it },
                         label = "Last Name",
@@ -169,7 +178,7 @@ fun NewContactScreen(
 
                     Spacer(modifier = Modifier.height(fieldSpacing))
 
-                    ContactInputField(
+                    EditContactInputField(
                         value = phoneNumber,
                         onValueChange = { phoneNumber = it },
                         label = "Phone Number",
@@ -180,7 +189,7 @@ fun NewContactScreen(
                     
                     Spacer(modifier = Modifier.height(fieldSpacing))
 
-                    ContactInputField(
+                    EditContactInputField(
                         value = email,
                         onValueChange = { email = it },
                         label = "Email",
@@ -192,13 +201,43 @@ fun NewContactScreen(
                     Spacer(modifier = Modifier.height(30.dp))
                     
                     // Save Location Selection
-                    SaveLocationSelector(
+                    EditSaveLocationSelector(
                         selectedType = saveType,
                         onTypeSelected = { saveType = it },
                         googleEmail = googleEmail,
                         onGoogleEmailChange = { googleEmail = it },
                         fontSize = fontSize
                     )
+
+                    Spacer(modifier = Modifier.height(40.dp))
+                    
+                    // Delete Contact Button
+                    Button(
+                        onClick = {
+                            isVisible = false
+                            onDelete()
+                        },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Contact",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Delete Contact",
+                            style = AppTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = fontSize
+                            )
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(50.dp))
                 }
@@ -208,7 +247,7 @@ fun NewContactScreen(
 }
 
 @Composable
-private fun SaveLocationSelector(
+private fun EditSaveLocationSelector(
     selectedType: String,
     onTypeSelected: (String) -> Unit,
     googleEmail: String,
@@ -223,7 +262,7 @@ private fun SaveLocationSelector(
     
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
-            text = "Save Contact To",
+            text = "Storage Location",
             style = AppTheme.typography.bodyMedium.copy(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium,
@@ -274,7 +313,7 @@ private fun SaveLocationSelector(
         ) {
             Column {
                 Spacer(modifier = Modifier.height(16.dp))
-                ContactInputField(
+                EditContactInputField(
                     value = googleEmail,
                     onValueChange = onGoogleEmailChange,
                     label = "Google Account Email",
@@ -289,7 +328,7 @@ private fun SaveLocationSelector(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ContactInputField(
+private fun EditContactInputField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
