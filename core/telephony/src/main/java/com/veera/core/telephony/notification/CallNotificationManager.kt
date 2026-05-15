@@ -60,7 +60,12 @@ class CallNotificationManager @Inject constructor(
                 description = "Shows incoming call notifications"
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 enableVibration(true)
-                setSound(null, null)
+                val ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
+                val audioAttributes = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+                setSound(ringtoneUri, audioAttributes)
             }
             
             val ongoingChannel = NotificationChannel(
