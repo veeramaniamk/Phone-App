@@ -335,234 +335,237 @@ fun NewContactScreen(
     }
 }
 
-    @Composable
-    fun DuplicateWarning(
-        message: String,
-        contact: Contact,
-        fontSize: TextUnit
+@Composable
+fun DuplicateWarning(
+    message: String,
+    contact: Contact,
+    fontSize: TextUnit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = message,
+                    style = AppTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = fontSize
+                    )
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = message,
-                        style = AppTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = fontSize
-                        )
-                    )
-                    val location = when {
-                        contact.accountType?.contains(
-                            "google",
-                            ignoreCase = true
-                        ) == true -> "Email (${contact.accountName})"
+                val location = when {
+                    contact.accountType?.contains(
+                        "google",
+                        ignoreCase = true
+                    ) == true -> "Email (${contact.accountName})"
 
-                        contact.accountType?.contains(
-                            "sim",
-                            ignoreCase = true
-                        ) == true -> "SIM Card"
+                    contact.accountType?.contains(
+                        "sim",
+                        ignoreCase = true
+                    ) == true -> "SIM Card"
 
-                        else -> "Device Storage"
-                    }
-                    Text(
-                        text = "Saved in: $location as ${contact.name}",
-                        style = AppTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                            fontSize = (fontSize.value * 0.85).sp
-                        )
-                    )
+                    else -> "Device Storage"
                 }
+                Text(
+                    text = "Saved in: $location as ${contact.name}",
+                    style = AppTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                        fontSize = (fontSize.value * 0.85).sp
+                    )
+                )
             }
         }
     }
+}
 
-    @Composable
-    fun SaveLocationSelector(
-        accounts: List<ContactAccount>,
-        selectedAccount: ContactAccount?,
-        onAccountSelected: (ContactAccount) -> Unit,
-        fontSize: TextUnit
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Text(
-                text = "Save Contact To",
-                style = AppTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = fontSize
-                ),
-                modifier = Modifier.padding(bottom = 12.dp)
+@Composable
+fun SaveLocationSelector(
+    accounts: List<ContactAccount>,
+    selectedAccount: ContactAccount?,
+    onAccountSelected: (ContactAccount) -> Unit,
+    fontSize: TextUnit
+)
+{
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(
+            text = "Save Contact To",
+            style = AppTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
+                fontSize = fontSize
+            ),
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        // Group accounts: Device, SIM, Emails
+        val googleAccounts = accounts.filter { it.type.contains("google", ignoreCase = true) }
+        val simAccounts = accounts.filter { it.type.contains("sim", ignoreCase = true) }
+        val deviceAccounts = accounts.filter {
+            !it.type.contains(
+                "google",
+                ignoreCase = true
+            ) && !it.type.contains("sim", ignoreCase = true)
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Device Option
+            val deviceAccount =
+                deviceAccounts.firstOrNull() ?: ContactAccount("Device", "local")
+            AccountItem(
+                account = deviceAccount,
+                label = "Phone Storage",
+                icon = Icons.Default.Smartphone,
+                isSelected = selectedAccount?.type == deviceAccount.type && selectedAccount?.name == deviceAccount.name,
+                onClick = { onAccountSelected(deviceAccount) },
+                fontSize = fontSize
             )
 
-            // Group accounts: Device, SIM, Emails
-            val googleAccounts = accounts.filter { it.type.contains("google", ignoreCase = true) }
-            val simAccounts = accounts.filter { it.type.contains("sim", ignoreCase = true) }
-            val deviceAccounts = accounts.filter {
-                !it.type.contains(
-                    "google",
-                    ignoreCase = true
-                ) && !it.type.contains("sim", ignoreCase = true)
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Device Option
-                val deviceAccount =
-                    deviceAccounts.firstOrNull() ?: ContactAccount("Device", "local")
-                AccountItem(
-                    account = deviceAccount,
-                    label = "Phone Storage",
-                    icon = Icons.Default.Smartphone,
-                    isSelected = selectedAccount?.type == deviceAccount.type && selectedAccount?.name == deviceAccount.name,
-                    onClick = { onAccountSelected(deviceAccount) },
-                    fontSize = fontSize
-                )
-
-                // SIM Option
-                if (simAccounts.isNotEmpty()) {
-                    simAccounts.forEachIndexed { index, acc ->
-                        AccountItem(
-                            account = acc,
-                            label = "SIM Card ${if (simAccounts.size > 1) index + 1 else ""}",
-                            icon = Icons.Default.SimCard,
-                            isSelected = selectedAccount == acc,
-                            onClick = { onAccountSelected(acc) },
-                            fontSize = fontSize
-                        )
-                    }
-                } else {
-                    // Fallback if no SIM account found but user might want it (usually it should be in accounts)
-                    AccountItem(
-                        account = ContactAccount("SIM", "sim"),
-                        label = "SIM Card",
-                        icon = Icons.Default.SimCard,
-                        isSelected = selectedAccount?.type == "sim",
-                        onClick = { onAccountSelected(ContactAccount("SIM", "sim")) },
-                        fontSize = fontSize
-                    )
-                }
-
-                // Google/Email Options
-                googleAccounts.forEach { acc ->
+            // SIM Option
+            if (simAccounts.isNotEmpty()) {
+                simAccounts.forEachIndexed { index, acc ->
                     AccountItem(
                         account = acc,
-                        label = acc.name,
-                        icon = Icons.Default.Email,
+                        label = "SIM Card ${if (simAccounts.size > 1) index + 1 else ""}",
+                        icon = Icons.Default.SimCard,
                         isSelected = selectedAccount == acc,
                         onClick = { onAccountSelected(acc) },
                         fontSize = fontSize
                     )
                 }
+            } else {
+                // Fallback if no SIM account found but user might want it (usually it should be in accounts)
+                AccountItem(
+                    account = ContactAccount("SIM", "sim"),
+                    label = "SIM Card",
+                    icon = Icons.Default.SimCard,
+                    isSelected = selectedAccount?.type == "sim",
+                    onClick = { onAccountSelected(ContactAccount("SIM", "sim")) },
+                    fontSize = fontSize
+                )
+            }
+
+            // Google/Email Options
+            googleAccounts.forEach { acc ->
+                AccountItem(
+                    account = acc,
+                    label = acc.name,
+                    icon = Icons.Default.Email,
+                    isSelected = selectedAccount == acc,
+                    onClick = { onAccountSelected(acc) },
+                    fontSize = fontSize
+                )
             }
         }
     }
+}
 
-    @Composable
-    fun AccountItem(
-        account: ContactAccount,
-        label: String,
-        icon: ImageVector,
-        isSelected: Boolean,
-        onClick: () -> Unit,
-        fontSize: TextUnit
+@Composable
+fun AccountItem(
+    account: ContactAccount,
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    fontSize: TextUnit
+)
+{
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(
+            alpha = 0.3f
+        ),
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.primary
+        ) else null
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .clickable(onClick = onClick),
-            shape = RoundedCornerShape(12.dp),
-            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(
-                alpha = 0.3f
-            ),
-            border = if (isSelected) androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.primary
-            ) else null
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = label,
+                style = AppTheme.typography.bodyLarge.copy(
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    fontSize = fontSize
+                )
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (isSelected) {
                 Icon(
-                    imageVector = icon,
+                    imageVector = Icons.Default.CheckCircle,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = label,
-                    style = AppTheme.typography.bodyLarge.copy(
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                        fontSize = fontSize
-                    )
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
         }
     }
+}
 
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    fun ContactInputField(
-        value: String,
-        onValueChange: (String) -> Unit,
-        label: String,
-        icon: ImageVector,
-        keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-        fontSize: TextUnit
-    ) {
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(label, fontSize = fontSize) },
-            leadingIcon = {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                )
-            },
-            keyboardOptions = keyboardOptions,
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                unfocusedContainerColor = Color.Transparent,
-                focusedContainerColor = Color.Transparent,
-                unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                focusedLabelColor = MaterialTheme.colorScheme.primary
-            ),
-            textStyle = AppTheme.typography.bodyLarge.copy(
-                fontSize = fontSize,
-                color = MaterialTheme.colorScheme.onBackground
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ContactInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    icon: ImageVector,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    fontSize: TextUnit
+)
+{
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label, fontSize = fontSize) },
+        leadingIcon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
             )
+        },
+        keyboardOptions = keyboardOptions,
+        singleLine = true,
+        colors = TextFieldDefaults.colors(
+            unfocusedContainerColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent,
+            unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            focusedLabelColor = MaterialTheme.colorScheme.primary
+        ),
+        textStyle = AppTheme.typography.bodyLarge.copy(
+            fontSize = fontSize,
+            color = MaterialTheme.colorScheme.onBackground
         )
-    }
+    )
+}
 
