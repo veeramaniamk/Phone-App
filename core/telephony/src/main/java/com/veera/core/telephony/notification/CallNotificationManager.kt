@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
+import androidx.core.graphics.drawable.IconCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,7 +22,9 @@ class CallNotificationManager @Inject constructor(
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val CHANNEL_ID = "incoming_calls"
     private val ONGOING_CHANNEL_ID = "ongoing_calls"
-    private val NOTIFICATION_ID = 1001
+    
+    val INCOMING_NOTIFICATION_ID = 1001
+    val ONGOING_NOTIFICATION_ID = 1002
 
     private fun createProfileBitmap(name: String): android.graphics.Bitmap {
         val size = 150
@@ -83,6 +87,13 @@ class CallNotificationManager @Inject constructor(
         }
     }
 
+    /**
+     * Resolves the contact photo from a URI string.
+     * Uses ImageDecoder on modern Android versions (P+) and MediaStore for older versions.
+     * 
+     * @param uriString The URI of the contact photo as a string.
+     * @return A Bitmap of the contact photo, or null if it cannot be loaded.
+     */
     private fun getPhotoBitmap(uriString: String?): android.graphics.Bitmap? {
         if (uriString == null) return null
         return try {
@@ -98,7 +109,19 @@ class CallNotificationManager @Inject constructor(
         }
     }
 
-    fun showIncomingCallNotification(callerName: String, callerNumber: String, photoUri: String? = null) {
+    /**
+     * Builds the notification specifically for an INCOMING call.
+     * Android 12+ requires using NotificationCompat.CallStyle.forIncomingCall.
+     * We explicitly set SubText, ContentTitle, and ContentText so that OEM Dynamic Islands 
+     * can intercept and display these status strings.
+     *
+     * @param callerName The resolved name of the caller (or "Unknown").
+     * @param callerNumber The phone number of the incoming call.
+     * @param photoUri Optional photo URI for the caller.
+     * @return The built Notification ready for foreground service or notification manager.
+     */
+
+    fun buildIncomingCallNotification(callerName: String, callerNumber: String, photoUri: String? = null): Notification {
         val fullScreenIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -131,25 +154,44 @@ class CallNotificationManager @Inject constructor(
         )
 
         val largeIcon = getPhotoBitmap(photoUri) ?: createProfileBitmap(callerName)
+        val iconCompat = IconCompat.createWithBitmap(largeIcon)
+
+        val caller = Person.Builder()
+            .setName(callerName)
+            .setIcon(iconCompat)
+            .setImportant(true)
+            .build()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setLargeIcon(largeIcon)
-            .setContentTitle("Incoming Call")
-            .setContentText("$callerName • $callerNumber")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, declinePendingIntent, answerPendingIntent))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setOngoing(true)
             .setAutoCancel(false)
-            .addAction(android.R.drawable.ic_menu_call, "Answer", answerPendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePendingIntent)
+            .setContentTitle(callerName)
+            .setContentText("Incoming Call")
+            .setSubText("Incoming Call")
+            .setTicker("Incoming Call")
             .build()
 
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        return notification
     }
 
-    fun showOngoingCallNotification(callerName: String, callerNumber: String, isSpeakerOn: Boolean, connectTime: Long, photoUri: String? = null) {
+    /**
+     * Builds the notification for OUTGOING and ACTIVE (ongoing) calls.
+     * Android 12+ requires NotificationCompat.CallStyle.forOngoingCall for active/dialing calls.
+     * 
+     * @param callerName The name of the person being called.
+     * @param callerNumber The phone number.
+     * @param isSpeakerOn Boolean representing if the speakerphone is currently active.
+     * @param connectTime The epoch time in milliseconds when the call connected. Null if dialing.
+     * @param photoUri Optional photo URI for the contact.
+     * @param isDialing True if the call is still establishing (dialing). Hides the timer.
+     * @return The built Notification.
+     */
+    fun buildOngoingCallNotification(callerName: String, callerNumber: String, isSpeakerOn: Boolean, connectTime: Long?, photoUri: String?, isDialing: Boolean = false): Notification {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("EXTRA_SHOW_ONGOING_CALL", true)
@@ -186,28 +228,61 @@ class CallNotificationManager @Inject constructor(
         val speakerIcon = if (isSpeakerOn) android.R.drawable.stat_sys_speakerphone else android.R.drawable.ic_btn_speak_now
 
         val largeIcon = getPhotoBitmap(photoUri) ?: createProfileBitmap(callerName)
+        val iconCompat = IconCompat.createWithBitmap(largeIcon)
 
-        val notification = NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
+        val caller = Person.Builder()
+            .setName(callerName)
+            .setIcon(iconCompat)
+            .setImportant(true)
+            .build()
+
+        val builder = NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setLargeIcon(largeIcon)
-            .setContentTitle("Ongoing Call")
-            .setContentText("$callerName • $callerNumber")
+            .setStyle(NotificationCompat.CallStyle.forOngoingCall(caller, endCallPendingIntent))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
-            .setWhen(connectTime)
-            .setUsesChronometer(true)
-            .setShowWhen(true)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true) // User requested to close notification on click
             .addAction(speakerIcon, speakerText, speakerPendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End Call", endCallPendingIntent)
-            .build()
+            .setContentTitle(callerName)
 
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        val stateText = if (isDialing) "Dialing..." else "Ongoing Call"
+        builder.setContentText(stateText)
+        builder.setSubText(stateText)
+        builder.setTicker(stateText)
+
+        if (!isDialing && connectTime != null && connectTime > 0) {
+            builder.setWhen(connectTime)
+            builder.setUsesChronometer(true)
+            builder.setShowWhen(true)
+        }
+
+        return builder.build()
+
+
     }
 
-    fun cancelNotification() {
-        notificationManager.cancel(NOTIFICATION_ID)
+    /**
+     * Forces the NotificationManager to immediately broadcast the updated notification.
+     */
+    fun updateIncomingNotification(notification: Notification) {
+        notificationManager.notify(INCOMING_NOTIFICATION_ID, notification)
+    }
+
+    fun updateOngoingNotification(notification: Notification) {
+        notificationManager.notify(ONGOING_NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * Clears the call notifications from the system.
+     */
+    fun cancelIncomingNotification() {
+        notificationManager.cancel(INCOMING_NOTIFICATION_ID)
+    }
+
+    fun cancelAllNotifications() {
+        notificationManager.cancel(INCOMING_NOTIFICATION_ID)
+        notificationManager.cancel(ONGOING_NOTIFICATION_ID)
     }
 }

@@ -144,25 +144,10 @@ class MainActivity : ComponentActivity() {
     }
     override fun onStart() {
         super.onStart()
-        // If we have an active call, cancel the notification when app starts/comes to foreground
-        if (callViewModel.callState.value == Call.STATE_ACTIVE) {
-            notificationManager.cancelNotification()
-        }
     }
 
     override fun onStop() {
         super.onStop()
-        // If we have an active call, show the notification when app goes to background
-        if (callViewModel.callState.value == Call.STATE_ACTIVE) {
-            val connectTime = callViewModel.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
-            notificationManager.showOngoingCallNotification(
-                callViewModel.callerName.value,
-                callViewModel.callerNumber.value,
-                callViewModel.isSpeakerOn.value,
-                connectTime,
-                callViewModel.callerPhotoUri.value
-            )
-        }
     }
 }
 
