@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
+import androidx.core.graphics.drawable.IconCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -98,7 +100,7 @@ class CallNotificationManager @Inject constructor(
         }
     }
 
-    fun showIncomingCallNotification(callerName: String, callerNumber: String, photoUri: String? = null) {
+    fun buildIncomingCallNotification(callerName: String, callerNumber: String, photoUri: String? = null): Notification {
         val fullScreenIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -131,25 +133,28 @@ class CallNotificationManager @Inject constructor(
         )
 
         val largeIcon = getPhotoBitmap(photoUri) ?: createProfileBitmap(callerName)
+        val iconCompat = IconCompat.createWithBitmap(largeIcon)
+
+        val caller = Person.Builder()
+            .setName(callerName)
+            .setIcon(iconCompat)
+            .setImportant(true)
+            .build()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setLargeIcon(largeIcon)
-            .setContentTitle("Incoming Call")
-            .setContentText("$callerName • $callerNumber")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, declinePendingIntent, answerPendingIntent))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setOngoing(true)
             .setAutoCancel(false)
-            .addAction(android.R.drawable.ic_menu_call, "Answer", answerPendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePendingIntent)
             .build()
 
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        return notification
     }
 
-    fun showOngoingCallNotification(callerName: String, callerNumber: String, isSpeakerOn: Boolean, connectTime: Long, photoUri: String? = null) {
+    fun buildOngoingCallNotification(callerName: String, callerNumber: String, isSpeakerOn: Boolean, connectTime: Long?, photoUri: String?, isDialing: Boolean = false): Notification {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("EXTRA_SHOW_ONGOING_CALL", true)
@@ -186,25 +191,33 @@ class CallNotificationManager @Inject constructor(
         val speakerIcon = if (isSpeakerOn) android.R.drawable.stat_sys_speakerphone else android.R.drawable.ic_btn_speak_now
 
         val largeIcon = getPhotoBitmap(photoUri) ?: createProfileBitmap(callerName)
+        val iconCompat = IconCompat.createWithBitmap(largeIcon)
 
-        val notification = NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
+        val caller = Person.Builder()
+            .setName(callerName)
+            .setIcon(iconCompat)
+            .setImportant(true)
+            .build()
+
+        val builder = NotificationCompat.Builder(context, ONGOING_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_call)
-            .setLargeIcon(largeIcon)
-            .setContentTitle("Ongoing Call")
-            .setContentText("$callerName • $callerNumber")
+            .setStyle(NotificationCompat.CallStyle.forOngoingCall(caller, endCallPendingIntent))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
-            .setWhen(connectTime)
-            .setUsesChronometer(true)
-            .setShowWhen(true)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true) // User requested to close notification on click
             .addAction(speakerIcon, speakerText, speakerPendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "End Call", endCallPendingIntent)
-            .build()
 
-        notificationManager.notify(NOTIFICATION_ID, notification)
+        if (!isDialing && connectTime != null) {
+            builder.setWhen(connectTime)
+            builder.setUsesChronometer(true)
+            builder.setShowWhen(true)
+        }
+
+        return builder.build()
+
+
     }
 
     fun cancelNotification() {
