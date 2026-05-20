@@ -15,6 +15,14 @@ import javax.inject.Inject
 import android.content.Context
 import android.os.PowerManager
 
+/**
+ * Service that integrates with Android Telecom to handle ongoing call states.
+ * Extending InCallService allows this app to act as the default dialer and receive
+ * Call objects representing active phone calls.
+ * 
+ * This service must be run as a Foreground Service using the 'phoneCall' foreground service type
+ * in Android 14+ to prevent the system from falling back to the default system dialer.
+ */
 @AndroidEntryPoint
 class AppCallService : InCallService() {
 
@@ -42,6 +50,11 @@ class AppCallService : InCallService() {
         observeCallInfo()
     }
 
+    /**
+     * Subscribes to the CallRepository state flow to react to changes in the call state.
+     * Based on the state (Ringing, Active, Disconnected, etc.), it triggers the
+     * appropriate CallStyle foreground notification to keep the UI synced.
+     */
     private fun observeCallInfo() {
         callRepository.callState
             .onEach { state ->
@@ -54,6 +67,7 @@ class AppCallService : InCallService() {
                     Call.STATE_RINGING -> {
                         val notification = notificationManager.buildIncomingCallNotification(name, number, photoUri)
                         startForeground(1001, notification)
+                        notificationManager.updateNotification(notification)
                     }
                     Call.STATE_ACTIVE -> {
                         if (proximityWakeLock?.isHeld == false) {
@@ -62,6 +76,7 @@ class AppCallService : InCallService() {
                         val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
                         val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri, isDialing = false)
                         startForeground(1001, notification)
+                        notificationManager.updateNotification(notification)
                     }
                     Call.STATE_DIALING, Call.STATE_CONNECTING, Call.STATE_SELECT_PHONE_ACCOUNT -> {
                         if (proximityWakeLock?.isHeld == false) {
@@ -69,6 +84,7 @@ class AppCallService : InCallService() {
                         }
                         val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, null, photoUri, isDialing = true)
                         startForeground(1001, notification)
+                        notificationManager.updateNotification(notification)
                     }
                     Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> {
                         if (proximityWakeLock?.isHeld == true) {
@@ -83,32 +99,40 @@ class AppCallService : InCallService() {
 
         callRepository.isSpeakerOn
             .onEach { isSpeakerOn ->
-                if (callRepository.callState.value == Call.STATE_ACTIVE) {
-                    val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+                val state = callRepository.callState.value
+                if (state == Call.STATE_ACTIVE || state == Call.STATE_DIALING || state == Call.STATE_CONNECTING || state == Call.STATE_SELECT_PHONE_ACCOUNT) {
+                    val isDialing = state != Call.STATE_ACTIVE
+                    val connectTime = if (isDialing) null else callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
                     val notification = notificationManager.buildOngoingCallNotification(
                         callRepository.callerName.value,
                         callRepository.callerNumber.value,
                         isSpeakerOn,
                         connectTime,
-                        callRepository.callerPhotoUri.value
+                        callRepository.callerPhotoUri.value,
+                        isDialing
                     )
                     startForeground(1001, notification)
+                    notificationManager.updateNotification(notification)
                 }
             }
             .launchIn(serviceScope)
             
         callRepository.callerName
             .onEach { name ->
-                if (callRepository.callState.value == Call.STATE_ACTIVE) {
-                    val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
+                val state = callRepository.callState.value
+                if (state == Call.STATE_ACTIVE || state == Call.STATE_DIALING || state == Call.STATE_CONNECTING || state == Call.STATE_SELECT_PHONE_ACCOUNT) {
+                    val isDialing = state != Call.STATE_ACTIVE
+                    val connectTime = if (isDialing) null else callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
                     val notification = notificationManager.buildOngoingCallNotification(
                         name,
                         callRepository.callerNumber.value,
                         callRepository.isSpeakerOn.value,
                         connectTime,
-                        callRepository.callerPhotoUri.value
+                        callRepository.callerPhotoUri.value,
+                        isDialing
                     )
                     startForeground(1001, notification)
+                    notificationManager.updateNotification(notification)
                 }
             }
             .launchIn(serviceScope)
@@ -124,6 +148,10 @@ class AppCallService : InCallService() {
             .launchIn(serviceScope)
     }
 
+    /**
+     * Called by Telecom when a new call is added to the system (Incoming or Outgoing).
+     * This is the entry point for starting the Foreground Service.
+     */
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
         callRepository.updateCall(call)
@@ -133,13 +161,19 @@ class AppCallService : InCallService() {
             val number = call.details.handle?.schemeSpecificPart ?: ""
             val notification = notificationManager.buildIncomingCallNotification("Incoming Call", number, null)
             startForeground(1001, notification)
+            notificationManager.updateNotification(notification)
         } else if (call.state == Call.STATE_DIALING || call.state == Call.STATE_CONNECTING || call.state == Call.STATE_SELECT_PHONE_ACCOUNT) {
             val number = call.details.handle?.schemeSpecificPart ?: ""
             val notification = notificationManager.buildOngoingCallNotification("Outgoing Call", number, false, null, null, true)
             startForeground(1001, notification)
+            notificationManager.updateNotification(notification)
         }
     }
 
+    /**
+     * Called by Telecom when a call is disconnected and removed.
+     * We must clean up our state, stop the foreground service, and cancel the notification.
+     */
     override fun onCallRemoved(call: Call) {
         super.onCallRemoved(call)
         callRepository.unregisterCallback(call)

@@ -85,6 +85,13 @@ class CallNotificationManager @Inject constructor(
         }
     }
 
+    /**
+     * Resolves the contact photo from a URI string.
+     * Uses ImageDecoder on modern Android versions (P+) and MediaStore for older versions.
+     * 
+     * @param uriString The URI of the contact photo as a string.
+     * @return A Bitmap of the contact photo, or null if it cannot be loaded.
+     */
     private fun getPhotoBitmap(uriString: String?): android.graphics.Bitmap? {
         if (uriString == null) return null
         return try {
@@ -99,6 +106,18 @@ class CallNotificationManager @Inject constructor(
             null
         }
     }
+
+    /**
+     * Builds the notification specifically for an INCOMING call.
+     * Android 12+ requires using NotificationCompat.CallStyle.forIncomingCall.
+     * We explicitly set SubText, ContentTitle, and ContentText so that OEM Dynamic Islands 
+     * can intercept and display these status strings.
+     *
+     * @param callerName The resolved name of the caller (or "Unknown").
+     * @param callerNumber The phone number of the incoming call.
+     * @param photoUri Optional photo URI for the caller.
+     * @return The built Notification ready for foreground service or notification manager.
+     */
 
     fun buildIncomingCallNotification(callerName: String, callerNumber: String, photoUri: String? = null): Notification {
         val fullScreenIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
@@ -149,11 +168,27 @@ class CallNotificationManager @Inject constructor(
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setOngoing(true)
             .setAutoCancel(false)
+            .setContentTitle(callerName)
+            .setContentText("Incoming Call")
+            .setSubText("Incoming Call")
+            .setTicker("Incoming Call")
             .build()
 
         return notification
     }
 
+    /**
+     * Builds the notification for OUTGOING and ACTIVE (ongoing) calls.
+     * Android 12+ requires NotificationCompat.CallStyle.forOngoingCall for active/dialing calls.
+     * 
+     * @param callerName The name of the person being called.
+     * @param callerNumber The phone number.
+     * @param isSpeakerOn Boolean representing if the speakerphone is currently active.
+     * @param connectTime The epoch time in milliseconds when the call connected. Null if dialing.
+     * @param photoUri Optional photo URI for the contact.
+     * @param isDialing True if the call is still establishing (dialing). Hides the timer.
+     * @return The built Notification.
+     */
     fun buildOngoingCallNotification(callerName: String, callerNumber: String, isSpeakerOn: Boolean, connectTime: Long?, photoUri: String?, isDialing: Boolean = false): Notification {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -208,8 +243,14 @@ class CallNotificationManager @Inject constructor(
             .setContentIntent(pendingIntent)
             .setAutoCancel(true) // User requested to close notification on click
             .addAction(speakerIcon, speakerText, speakerPendingIntent)
+            .setContentTitle(callerName)
 
-        if (!isDialing && connectTime != null) {
+        val stateText = if (isDialing) "Dialing..." else "Ongoing Call"
+        builder.setContentText(stateText)
+        builder.setSubText(stateText)
+        builder.setTicker(stateText)
+
+        if (!isDialing && connectTime != null && connectTime > 0) {
             builder.setWhen(connectTime)
             builder.setUsesChronometer(true)
             builder.setShowWhen(true)
@@ -220,6 +261,19 @@ class CallNotificationManager @Inject constructor(
 
     }
 
+    /**
+     * Forces the NotificationManager to immediately broadcast the updated notification.
+     * This is required for some OEM dynamic islands to refresh their UI without waiting
+     * for the system's background Foreground Service tick.
+     */
+    fun updateNotification(notification: Notification) {
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * Clears the call notification from the system.
+     * Called when the call is disconnected and the foreground service stops.
+     */
     fun cancelNotification() {
         notificationManager.cancel(NOTIFICATION_ID)
     }
