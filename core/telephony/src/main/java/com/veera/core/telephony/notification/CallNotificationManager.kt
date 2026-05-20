@@ -22,7 +22,9 @@ class CallNotificationManager @Inject constructor(
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val CHANNEL_ID = "incoming_calls"
     private val ONGOING_CHANNEL_ID = "ongoing_calls"
-    private val NOTIFICATION_ID = 1001
+    
+    val INCOMING_NOTIFICATION_ID = 1001
+    val ONGOING_NOTIFICATION_ID = 1002
 
     private fun createProfileBitmap(name: String): android.graphics.Bitmap {
         val size = 150
@@ -263,18 +265,24 @@ class CallNotificationManager @Inject constructor(
 
     /**
      * Forces the NotificationManager to immediately broadcast the updated notification.
-     * This is required for some OEM dynamic islands to refresh their UI without waiting
-     * for the system's background Foreground Service tick.
      */
-    fun updateNotification(notification: Notification) {
-        notificationManager.notify(NOTIFICATION_ID, notification)
+    fun updateIncomingNotification(notification: Notification) {
+        notificationManager.notify(INCOMING_NOTIFICATION_ID, notification)
+    }
+
+    fun updateOngoingNotification(notification: Notification) {
+        notificationManager.notify(ONGOING_NOTIFICATION_ID, notification)
     }
 
     /**
-     * Clears the call notification from the system.
-     * Called when the call is disconnected and the foreground service stops.
+     * Clears the call notifications from the system.
      */
-    fun cancelNotification() {
-        notificationManager.cancel(NOTIFICATION_ID)
+    fun cancelIncomingNotification() {
+        notificationManager.cancel(INCOMING_NOTIFICATION_ID)
+    }
+
+    fun cancelAllNotifications() {
+        notificationManager.cancel(INCOMING_NOTIFICATION_ID)
+        notificationManager.cancel(ONGOING_NOTIFICATION_ID)
     }
 }

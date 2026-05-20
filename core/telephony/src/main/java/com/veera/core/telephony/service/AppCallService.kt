@@ -66,8 +66,8 @@ class AppCallService : InCallService() {
                 when (state) {
                     Call.STATE_RINGING -> {
                         val notification = notificationManager.buildIncomingCallNotification(name, number, photoUri)
-                        startForeground(1001, notification)
-                        notificationManager.updateNotification(notification)
+                        startForeground(notificationManager.INCOMING_NOTIFICATION_ID, notification)
+                        notificationManager.updateIncomingNotification(notification)
                     }
                     Call.STATE_ACTIVE -> {
                         if (proximityWakeLock?.isHeld == false) {
@@ -75,23 +75,25 @@ class AppCallService : InCallService() {
                         }
                         val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
                         val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri, isDialing = false)
-                        startForeground(1001, notification)
-                        notificationManager.updateNotification(notification)
+                        startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+                        notificationManager.updateOngoingNotification(notification)
+                        notificationManager.cancelIncomingNotification()
                     }
                     Call.STATE_DIALING, Call.STATE_CONNECTING, Call.STATE_SELECT_PHONE_ACCOUNT -> {
                         if (proximityWakeLock?.isHeld == false) {
                             proximityWakeLock?.acquire()
                         }
                         val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, null, photoUri, isDialing = true)
-                        startForeground(1001, notification)
-                        notificationManager.updateNotification(notification)
+                        startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+                        notificationManager.updateOngoingNotification(notification)
+                        notificationManager.cancelIncomingNotification()
                     }
                     Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> {
                         if (proximityWakeLock?.isHeld == true) {
                             proximityWakeLock?.release()
                         }
                         stopForeground(true)
-                        notificationManager.cancelNotification()
+                        notificationManager.cancelAllNotifications()
                     }
                 }
             }
@@ -100,19 +102,20 @@ class AppCallService : InCallService() {
         callRepository.isSpeakerOn
             .onEach { isSpeakerOn ->
                 val state = callRepository.callState.value
+                val name = callRepository.callerName.value
+                val number = callRepository.callerNumber.value
+                val photoUri = callRepository.callerPhotoUri.value
+                
                 if (state == Call.STATE_ACTIVE || state == Call.STATE_DIALING || state == Call.STATE_CONNECTING || state == Call.STATE_SELECT_PHONE_ACCOUNT) {
                     val isDialing = state != Call.STATE_ACTIVE
                     val connectTime = if (isDialing) null else callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
-                    val notification = notificationManager.buildOngoingCallNotification(
-                        callRepository.callerName.value,
-                        callRepository.callerNumber.value,
-                        isSpeakerOn,
-                        connectTime,
-                        callRepository.callerPhotoUri.value,
-                        isDialing
-                    )
-                    startForeground(1001, notification)
-                    notificationManager.updateNotification(notification)
+                    val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri, isDialing)
+                    startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+                    notificationManager.updateOngoingNotification(notification)
+                } else if (state == Call.STATE_RINGING) {
+                    val notification = notificationManager.buildIncomingCallNotification(name, number, photoUri)
+                    startForeground(notificationManager.INCOMING_NOTIFICATION_ID, notification)
+                    notificationManager.updateIncomingNotification(notification)
                 }
             }
             .launchIn(serviceScope)
@@ -120,19 +123,20 @@ class AppCallService : InCallService() {
         callRepository.callerName
             .onEach { name ->
                 val state = callRepository.callState.value
+                val number = callRepository.callerNumber.value
+                val isSpeakerOn = callRepository.isSpeakerOn.value
+                val photoUri = callRepository.callerPhotoUri.value
+
                 if (state == Call.STATE_ACTIVE || state == Call.STATE_DIALING || state == Call.STATE_CONNECTING || state == Call.STATE_SELECT_PHONE_ACCOUNT) {
                     val isDialing = state != Call.STATE_ACTIVE
                     val connectTime = if (isDialing) null else callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
-                    val notification = notificationManager.buildOngoingCallNotification(
-                        name,
-                        callRepository.callerNumber.value,
-                        callRepository.isSpeakerOn.value,
-                        connectTime,
-                        callRepository.callerPhotoUri.value,
-                        isDialing
-                    )
-                    startForeground(1001, notification)
-                    notificationManager.updateNotification(notification)
+                    val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri, isDialing)
+                    startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+                    notificationManager.updateOngoingNotification(notification)
+                } else if (state == Call.STATE_RINGING) {
+                    val notification = notificationManager.buildIncomingCallNotification(name, number, photoUri)
+                    startForeground(notificationManager.INCOMING_NOTIFICATION_ID, notification)
+                    notificationManager.updateIncomingNotification(notification)
                 }
             }
             .launchIn(serviceScope)
@@ -160,13 +164,13 @@ class AppCallService : InCallService() {
         if (call.state == Call.STATE_RINGING) {
             val number = call.details.handle?.schemeSpecificPart ?: ""
             val notification = notificationManager.buildIncomingCallNotification("Incoming Call", number, null)
-            startForeground(1001, notification)
-            notificationManager.updateNotification(notification)
+            startForeground(notificationManager.INCOMING_NOTIFICATION_ID, notification)
+            notificationManager.updateIncomingNotification(notification)
         } else if (call.state == Call.STATE_DIALING || call.state == Call.STATE_CONNECTING || call.state == Call.STATE_SELECT_PHONE_ACCOUNT) {
             val number = call.details.handle?.schemeSpecificPart ?: ""
             val notification = notificationManager.buildOngoingCallNotification("Outgoing Call", number, false, null, null, true)
-            startForeground(1001, notification)
-            notificationManager.updateNotification(notification)
+            startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+            notificationManager.updateOngoingNotification(notification)
         }
     }
 
@@ -179,7 +183,7 @@ class AppCallService : InCallService() {
         callRepository.unregisterCallback(call)
         callRepository.updateCall(null)
         stopForeground(true)
-        notificationManager.cancelNotification()
+        notificationManager.cancelAllNotifications()
     }
 
     override fun onCallAudioStateChanged(audioState: CallAudioState) {
