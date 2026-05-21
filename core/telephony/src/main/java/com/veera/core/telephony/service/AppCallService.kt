@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import android.content.Context
 import android.os.PowerManager
+import android.os.Build
+import android.content.pm.ServiceInfo
+import android.app.Notification
 
 /**
  * Service that integrates with Android Telecom to handle ongoing call states.
@@ -49,6 +52,18 @@ class AppCallService : InCallService() {
         observeAudioRequests()
         observeCallInfo()
     }
+    
+    private fun startForegroundCompat(id: Int, notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            startForeground(
+                id, 
+                notification, 
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            )
+        } else {
+            startForeground(id, notification)
+        }
+    }
 
     /**
      * Subscribes to the CallRepository state flow to react to changes in the call state.
@@ -66,7 +81,7 @@ class AppCallService : InCallService() {
                 when (state) {
                     Call.STATE_RINGING -> {
                         val notification = notificationManager.buildIncomingCallNotification(name, number, photoUri)
-                        startForeground(notificationManager.INCOMING_NOTIFICATION_ID, notification)
+                        startForegroundCompat(notificationManager.INCOMING_NOTIFICATION_ID, notification)
                         notificationManager.updateIncomingNotification(notification)
                     }
                     Call.STATE_ACTIVE -> {
@@ -75,7 +90,7 @@ class AppCallService : InCallService() {
                         }
                         val connectTime = callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
                         val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri, isDialing = false)
-                        startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+                        startForegroundCompat(notificationManager.ONGOING_NOTIFICATION_ID, notification)
                         notificationManager.updateOngoingNotification(notification)
                         notificationManager.cancelIncomingNotification()
                     }
@@ -84,7 +99,7 @@ class AppCallService : InCallService() {
                             proximityWakeLock?.acquire()
                         }
                         val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, null, photoUri, isDialing = true)
-                        startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+                        startForegroundCompat(notificationManager.ONGOING_NOTIFICATION_ID, notification)
                         notificationManager.updateOngoingNotification(notification)
                         notificationManager.cancelIncomingNotification()
                     }
@@ -110,11 +125,11 @@ class AppCallService : InCallService() {
                     val isDialing = state != Call.STATE_ACTIVE
                     val connectTime = if (isDialing) null else callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
                     val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri, isDialing)
-                    startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+                    startForegroundCompat(notificationManager.ONGOING_NOTIFICATION_ID, notification)
                     notificationManager.updateOngoingNotification(notification)
                 } else if (state == Call.STATE_RINGING) {
                     val notification = notificationManager.buildIncomingCallNotification(name, number, photoUri)
-                    startForeground(notificationManager.INCOMING_NOTIFICATION_ID, notification)
+                    startForegroundCompat(notificationManager.INCOMING_NOTIFICATION_ID, notification)
                     notificationManager.updateIncomingNotification(notification)
                 }
             }
@@ -131,11 +146,11 @@ class AppCallService : InCallService() {
                     val isDialing = state != Call.STATE_ACTIVE
                     val connectTime = if (isDialing) null else callRepository.currentCall.value?.details?.connectTimeMillis ?: System.currentTimeMillis()
                     val notification = notificationManager.buildOngoingCallNotification(name, number, isSpeakerOn, connectTime, photoUri, isDialing)
-                    startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+                    startForegroundCompat(notificationManager.ONGOING_NOTIFICATION_ID, notification)
                     notificationManager.updateOngoingNotification(notification)
                 } else if (state == Call.STATE_RINGING) {
                     val notification = notificationManager.buildIncomingCallNotification(name, number, photoUri)
-                    startForeground(notificationManager.INCOMING_NOTIFICATION_ID, notification)
+                    startForegroundCompat(notificationManager.INCOMING_NOTIFICATION_ID, notification)
                     notificationManager.updateIncomingNotification(notification)
                 }
             }
@@ -164,12 +179,12 @@ class AppCallService : InCallService() {
         if (call.state == Call.STATE_RINGING) {
             val number = call.details.handle?.schemeSpecificPart ?: ""
             val notification = notificationManager.buildIncomingCallNotification("Incoming Call", number, null)
-            startForeground(notificationManager.INCOMING_NOTIFICATION_ID, notification)
+            startForegroundCompat(notificationManager.INCOMING_NOTIFICATION_ID, notification)
             notificationManager.updateIncomingNotification(notification)
         } else if (call.state == Call.STATE_DIALING || call.state == Call.STATE_CONNECTING || call.state == Call.STATE_SELECT_PHONE_ACCOUNT) {
             val number = call.details.handle?.schemeSpecificPart ?: ""
             val notification = notificationManager.buildOngoingCallNotification("Outgoing Call", number, false, null, null, true)
-            startForeground(notificationManager.ONGOING_NOTIFICATION_ID, notification)
+            startForegroundCompat(notificationManager.ONGOING_NOTIFICATION_ID, notification)
             notificationManager.updateOngoingNotification(notification)
         }
     }

@@ -26,63 +26,90 @@ class CallRecorder @Inject constructor(
     fun startRecording(phoneNumber: String): Boolean {
         if (isRecording) return false
 
-        return try {
-            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(context)
-            } else {
-                MediaRecorder()
-            }
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val safeNumber = phoneNumber.replace(Regex("[^a-zA-Z0-9]"), "")
+        val fileName = "Call_${safeNumber}_$timestamp.m4a"
 
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val safeNumber = phoneNumber.replace(Regex("[^a-zA-Z0-9]"), "")
-            val fileName = "Call_${safeNumber}_$timestamp.m4a"
+        val sourcesToTry = listOf(
+            MediaRecorder.AudioSource.VOICE_CALL,
+            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+            MediaRecorder.AudioSource.MIC
+        )
 
-            mediaRecorder?.apply {
-                setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        var startedSuccessfully = false
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val resolver = context.contentResolver
-                    val contentValues = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                        put(MediaStore.MediaColumns.MIME_TYPE, "audio/mp4")
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/CallAppRecords")
-                    }
-                    
-                    val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
-                    if (uri != null) {
-                        val pfd = resolver.openFileDescriptor(uri, "w")
-                        if (pfd != null) {
-                            setOutputFile(pfd.fileDescriptor)
-                        } else {
-                            throw Exception("Failed to open file descriptor")
-                        }
-                    } else {
-                        throw Exception("Failed to create MediaStore entry")
-                    }
+        for (source in sourcesToTry) {
+            var tempRecorder: MediaRecorder? = null
+            try {
+                Log.d("CallRecorder", "Attempting call recording using audio source: $source")
+                tempRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    MediaRecorder(context)
                 } else {
-                    val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "CallAppRecords")
-                    if (!dir.exists()) {
-                        dir.mkdirs()
-                    }
-                    val file = File(dir, fileName)
-                    setOutputFile(file.absolutePath)
+                    MediaRecorder()
                 }
 
-                prepare()
-                start()
+                tempRecorder.apply {
+                    setAudioSource(source)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val resolver = context.contentResolver
+                        val contentValues = ContentValues().apply {
+                            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                            put(MediaStore.MediaColumns.MIME_TYPE, "audio/mp4")
+                            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/CallAppRecords")
+                        }
+                        
+                        val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
+                        if (uri != null) {
+                            val pfd = resolver.openFileDescriptor(uri, "w")
+                            if (pfd != null) {
+                                setOutputFile(pfd.fileDescriptor)
+                            } else {
+                                throw Exception("Failed to open file descriptor")
+                            }
+                        } else {
+                            throw Exception("Failed to create MediaStore entry")
+                        }
+                    } else {
+                        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "CallAppRecords")
+                        if (!dir.exists()) {
+                            dir.mkdirs()
+                        }
+                        val file = File(dir, fileName)
+                        setOutputFile(file.absolutePath)
+                    }
+
+                    prepare()
+                    start()
+                }
+
+                mediaRecorder = tempRecorder
+                isRecording = true
+                currentFileName = fileName
+                startedSuccessfully = true
+                Log.i("CallRecorder", "Successfully started call recording using audio source: $source")
+                break
+            } catch (e: Exception) {
+                Log.w("CallRecorder", "Failed to start call recording with source $source: ${e.message}", e)
+                try {
+                    tempRecorder?.release()
+                } catch (ex: Exception) {
+                    Log.e("CallRecorder", "Error releasing failed recorder instance: ${ex.message}", ex)
+                }
             }
-            isRecording = true
-            currentFileName = fileName
-            true
-        } catch (e: Exception) {
-            Log.e("CallRecorder", "Failed to start recording", e)
-            mediaRecorder?.release()
-            mediaRecorder = null
-            isRecording = false
-            false
         }
+
+        if (!startedSuccessfully) {
+            Log.e("CallRecorder", "All attempted audio sources for call recording failed.")
+            isRecording = false
+            mediaRecorder = null
+            currentFileName = null
+        }
+
+        return startedSuccessfully
     }
 
     fun stopRecording(): Result<String> {

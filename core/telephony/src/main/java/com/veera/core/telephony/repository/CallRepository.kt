@@ -125,6 +125,10 @@ class CallRepository @Inject constructor(
                 if (!callRecorder.isCurrentlyRecording()) {
                     if (callRecorder.startRecording(_callerNumber.value)) {
                         _recordingStartTimeMillis.value = System.currentTimeMillis()
+                        _recordMessageEvent.tryEmit("Speaker enabled for recording")
+                        if (!_isSpeakerOn.value) {
+                            setAudioRoute(CallAudioState.ROUTE_SPEAKER)
+                        }
                     } else {
                         _recordMessageEvent.tryEmit("Failed to start recording")
                         _isRecording.value = false
@@ -190,6 +194,10 @@ class CallRepository @Inject constructor(
         if (newState && _callState.value == Call.STATE_ACTIVE) {
             if (callRecorder.startRecording(_callerNumber.value)) {
                 _recordingStartTimeMillis.value = System.currentTimeMillis()
+                _recordMessageEvent.tryEmit("Speaker enabled for recording")
+                if (!_isSpeakerOn.value) {
+                    setAudioRoute(CallAudioState.ROUTE_SPEAKER)
+                }
             } else {
                 _recordMessageEvent.tryEmit("Failed to start recording")
                 _isRecording.value = false
