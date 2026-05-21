@@ -71,4 +71,19 @@ class CallViewModel @Inject constructor(
     fun toggleSpeaker() {
         callRepository.toggleSpeaker()
     }
+    
+    val isRecording = callRepository.isRecording
+    val recordingStartTimeMillis = callRepository.recordingStartTimeMillis
+    val recordMessageEvent = callRepository.recordMessageEvent
+    
+    val supportedAudioRoutes = callRepository.supportedAudioRoutes
+    val currentAudioRoute = callRepository.currentAudioRoute
+
+    fun toggleRecording() {
+        callRepository.toggleRecording()
+    }
+
+    fun setAudioRoute(route: Int) {
+        callRepository.setAudioRoute(route)
+    }
 }

@@ -14,9 +14,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.veera.core.telephony.recorder.CallRecorder
+
 @Singleton
 class CallRepository @Inject constructor(
-    private val callLogRepository: CallLogRepository
+    private val callLogRepository: CallLogRepository,
+    private val callRecorder: CallRecorder
 ) {
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val _currentCall = MutableStateFlow<Call?>(null)
@@ -41,6 +44,21 @@ class CallRepository @Inject constructor(
     private val _isSpeakerOn = MutableStateFlow(false)
     val isSpeakerOn: StateFlow<Boolean> = _isSpeakerOn
 
+    private val _isRecording = MutableStateFlow(false)
+    val isRecording: StateFlow<Boolean> = _isRecording
+    
+    private val _recordingStartTimeMillis = MutableStateFlow(0L)
+    val recordingStartTimeMillis: StateFlow<Long> = _recordingStartTimeMillis
+    
+    private val _recordMessageEvent = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val recordMessageEvent: SharedFlow<String> = _recordMessageEvent
+    
+    private val _supportedAudioRoutes = MutableStateFlow(CallAudioState.ROUTE_EARPIECE or CallAudioState.ROUTE_SPEAKER)
+    val supportedAudioRoutes: StateFlow<Int> = _supportedAudioRoutes
+    
+    private val _currentAudioRoute = MutableStateFlow(CallAudioState.ROUTE_EARPIECE)
+    val currentAudioRoute: StateFlow<Int> = _currentAudioRoute
+
     // Audio Control Signals for Service
     private val _audioRouteRequest = MutableSharedFlow<Int>(extraBufferCapacity = 1)
     val audioRouteRequest: SharedFlow<Int> = _audioRouteRequest
@@ -61,6 +79,17 @@ class CallRepository @Inject constructor(
             // Reset audio states
             _isMuted.value = false
             _isSpeakerOn.value = false
+            _currentAudioRoute.value = CallAudioState.ROUTE_EARPIECE
+            if (_isRecording.value) {
+                val result = callRecorder.stopRecording()
+                _isRecording.value = false
+                _recordingStartTimeMillis.value = 0L
+                result.onSuccess { 
+                    _recordMessageEvent.tryEmit("Saved: $it") 
+                }.onFailure { 
+                    _recordMessageEvent.tryEmit("Error saving recording") 
+                }
+            }
         }
 
         call?.details?.let { details ->
@@ -92,8 +121,28 @@ class CallRepository @Inject constructor(
     private val callCallback = object : Call.Callback() {
         override fun onStateChanged(call: Call, state: Int) {
             _callState.value = state
+            if (state == Call.STATE_ACTIVE && _isRecording.value) {
+                if (!callRecorder.isCurrentlyRecording()) {
+                    if (callRecorder.startRecording(_callerNumber.value)) {
+                        _recordingStartTimeMillis.value = System.currentTimeMillis()
+                    } else {
+                        _recordMessageEvent.tryEmit("Failed to start recording")
+                        _isRecording.value = false
+                    }
+                }
+            }
             if (state == Call.STATE_DISCONNECTED) {
                 _callFinishedEvent.tryEmit(Unit)
+                if (_isRecording.value) {
+                    val result = callRecorder.stopRecording()
+                    _isRecording.value = false
+                    _recordingStartTimeMillis.value = 0L
+                    result.onSuccess { 
+                        _recordMessageEvent.tryEmit("Saved: $it") 
+                    }.onFailure { 
+                        _recordMessageEvent.tryEmit("Error saving recording") 
+                    }
+                }
             }
         }
     }
@@ -131,8 +180,35 @@ class CallRepository @Inject constructor(
         _audioRouteRequest.tryEmit(route)
     }
     
+    fun setAudioRoute(route: Int) {
+        _audioRouteRequest.tryEmit(route)
+    }
+    
+    fun toggleRecording() {
+        val newState = !_isRecording.value
+        _isRecording.value = newState
+        if (newState && _callState.value == Call.STATE_ACTIVE) {
+            if (callRecorder.startRecording(_callerNumber.value)) {
+                _recordingStartTimeMillis.value = System.currentTimeMillis()
+            } else {
+                _recordMessageEvent.tryEmit("Failed to start recording")
+                _isRecording.value = false
+            }
+        } else if (!newState) {
+            val result = callRecorder.stopRecording()
+            _recordingStartTimeMillis.value = 0L
+            result.onSuccess { 
+                _recordMessageEvent.tryEmit("Saved: $it") 
+            }.onFailure { 
+                _recordMessageEvent.tryEmit("Error saving recording") 
+            }
+        }
+    }
+    
     fun updateAudioState(state: CallAudioState) {
         _isMuted.value = state.isMuted
         _isSpeakerOn.value = state.route == CallAudioState.ROUTE_SPEAKER
+        _supportedAudioRoutes.value = state.supportedRouteMask
+        _currentAudioRoute.value = state.route
     }
 }

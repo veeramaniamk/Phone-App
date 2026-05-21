@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import android.telecom.CallAudioState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,14 +36,34 @@ fun OngoingCallScreen(
     photoUri: String? = null,
     isMuted: Boolean = false,
     isSpeakerOn: Boolean = false,
+    isRecording: Boolean = false,
+    recordingStartTimeMillis: Long = 0L,
+    supportedAudioRoutes: Int = CallAudioState.ROUTE_EARPIECE or CallAudioState.ROUTE_SPEAKER,
+    currentAudioRoute: Int = CallAudioState.ROUTE_EARPIECE,
     onMuteClick: () -> Unit = {},
     onSpeakerClick: () -> Unit = {},
+    onRecordClick: () -> Unit = {},
+    onAudioRouteSelect: (Int) -> Unit = {},
     isDarkModeEnabled: Boolean = isSystemInDarkTheme(),
     connectTimeMillis: Long = 0L,
     onEndCall: () -> Unit
 ) {
     var callDuration by remember { mutableLongStateOf(0L) }
+    var showAudioRoutePicker by remember { mutableStateOf(false) }
     val isCallActive = status == "Connected"
+    
+    var recordingDuration by remember { mutableLongStateOf(0L) }
+    
+    LaunchedEffect(isRecording, recordingStartTimeMillis) {
+        if (isRecording && recordingStartTimeMillis > 0L) {
+            while (true) {
+                recordingDuration = (System.currentTimeMillis() - recordingStartTimeMillis) / 1000
+                delay(500)
+            }
+        } else {
+            recordingDuration = 0L
+        }
+    }
     
     LaunchedEffect(isCallActive, connectTimeMillis) {
         if (isCallActive) {
@@ -167,6 +188,30 @@ fun OngoingCallScreen(
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
+                    
+                    if (isRecording && recordingStartTimeMillis > 0L) {
+                        val rMinutes = (recordingDuration / 60).toString().padStart(2, '0')
+                        val rSeconds = (recordingDuration % 60).toString().padStart(2, '0')
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FiberManualRecord,
+                                contentDescription = "Recording",
+                                tint = Color.Red,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "$rMinutes:$rSeconds",
+                                style = AppTheme.typography.bodyMedium.copy(
+                                    color = Color.Red,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -190,11 +235,24 @@ fun OngoingCallScreen(
                         )
                         CallControlButton(Icons.Default.Apps, "Keypad", controlBtnSize)
                         CallControlButton(
-                            icon = if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeDown,
-                            label = "Speaker",
+                            icon = when (currentAudioRoute) {
+                                CallAudioState.ROUTE_BLUETOOTH -> Icons.Default.Bluetooth
+                                CallAudioState.ROUTE_SPEAKER -> Icons.Default.VolumeUp
+                                CallAudioState.ROUTE_WIRED_HEADSET -> Icons.Default.Headset
+                                else -> Icons.Default.VolumeDown
+                            },
+                            label = "Audio",
                             size = controlBtnSize,
-                            isActive = isSpeakerOn,
-                            onClick = onSpeakerClick
+                            isActive = currentAudioRoute != CallAudioState.ROUTE_EARPIECE,
+                            onClick = {
+                                // If bluetooth or wired headset is supported, show picker
+                                if ((supportedAudioRoutes and CallAudioState.ROUTE_BLUETOOTH) != 0 || 
+                                    (supportedAudioRoutes and CallAudioState.ROUTE_WIRED_HEADSET) != 0) {
+                                    showAudioRoutePicker = true
+                                } else {
+                                    onSpeakerClick()
+                                }
+                            }
                         )
                     }
                     
@@ -203,8 +261,14 @@ fun OngoingCallScreen(
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         CallControlButton(Icons.Default.AddIcCall, "Add call", controlBtnSize)
+                        CallControlButton(
+                            icon = Icons.Default.FiberManualRecord, 
+                            label = "Record", 
+                            size = controlBtnSize,
+                            isActive = isRecording,
+                            onClick = onRecordClick
+                        )
                         CallControlButton(Icons.Default.VideoCall, "Video", controlBtnSize)
-                        CallControlButton(Icons.Default.Bluetooth, "Bluetooth", controlBtnSize)
                     }
                 }
 
@@ -227,6 +291,46 @@ fun OngoingCallScreen(
                 }
                 
                 Spacer(modifier = Modifier.height(24.dp))
+            }
+            
+            if (showAudioRoutePicker) {
+                AlertDialog(
+                    onDismissRequest = { showAudioRoutePicker = false },
+                    title = { Text("Select Audio Route") },
+                    text = {
+                        Column {
+                            if ((supportedAudioRoutes and CallAudioState.ROUTE_EARPIECE) != 0) {
+                                TextButton(onClick = { 
+                                    onAudioRouteSelect(CallAudioState.ROUTE_EARPIECE)
+                                    showAudioRoutePicker = false
+                                }) { Text("Earpiece") }
+                            }
+                            if ((supportedAudioRoutes and CallAudioState.ROUTE_SPEAKER) != 0) {
+                                TextButton(onClick = { 
+                                    onAudioRouteSelect(CallAudioState.ROUTE_SPEAKER)
+                                    showAudioRoutePicker = false
+                                }) { Text("Speaker") }
+                            }
+                            if ((supportedAudioRoutes and CallAudioState.ROUTE_BLUETOOTH) != 0) {
+                                TextButton(onClick = { 
+                                    onAudioRouteSelect(CallAudioState.ROUTE_BLUETOOTH)
+                                    showAudioRoutePicker = false
+                                }) { Text("Bluetooth") }
+                            }
+                            if ((supportedAudioRoutes and CallAudioState.ROUTE_WIRED_HEADSET) != 0) {
+                                TextButton(onClick = { 
+                                    onAudioRouteSelect(CallAudioState.ROUTE_WIRED_HEADSET)
+                                    showAudioRoutePicker = false
+                                }) { Text("Wired Headset") }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showAudioRoutePicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
     }

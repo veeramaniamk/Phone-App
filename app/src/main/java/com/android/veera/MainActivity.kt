@@ -38,7 +38,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.veera.core.telephony.notification.CallNotificationManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
+import android.widget.Toast
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -63,6 +65,18 @@ class MainActivity : ComponentActivity() {
                 val callStatus by callViewModel.callStatusString.collectAsState()
                 val isMuted by callViewModel.isMuted.collectAsState()
                 val isSpeakerOn by callViewModel.isSpeakerOn.collectAsState()
+                val isRecording by callViewModel.isRecording.collectAsState()
+                val recordingStartTimeMillis by callViewModel.recordingStartTimeMillis.collectAsState()
+                val supportedAudioRoutes by callViewModel.supportedAudioRoutes.collectAsState()
+                val currentAudioRoute by callViewModel.currentAudioRoute.collectAsState()
+                
+                val context = LocalContext.current
+                
+                LaunchedEffect(Unit) {
+                    callViewModel.recordMessageEvent.collectLatest { message ->
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    }
+                }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
@@ -129,8 +143,14 @@ class MainActivity : ComponentActivity() {
                                         photoUri = callerPhotoUri,
                                         isMuted = isMuted,
                                         isSpeakerOn = isSpeakerOn,
+                                        isRecording = isRecording,
+                                        recordingStartTimeMillis = recordingStartTimeMillis,
+                                        supportedAudioRoutes = supportedAudioRoutes,
+                                        currentAudioRoute = currentAudioRoute,
                                         onMuteClick = { callViewModel.toggleMute() },
                                         onSpeakerClick = { callViewModel.toggleSpeaker() },
+                                        onRecordClick = { callViewModel.toggleRecording() },
+                                        onAudioRouteSelect = { route -> callViewModel.setAudioRoute(route) },
                                         onEndCall = { callViewModel.disconnectCall() },
                                         connectTimeMillis = callViewModel.currentCall.value?.details?.connectTimeMillis ?: 0L
                                     )
