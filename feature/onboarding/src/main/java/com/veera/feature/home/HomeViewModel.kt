@@ -66,10 +66,36 @@ class HomeViewModel @Inject constructor(
             isEndReached.value = false
             val firstPage = callLogRepository.getCallLogs(0, pageSize)
             allRecents.clear()
-            allRecents.addAll(firstPage.map { it.toRecentCall() })
+            val mappedData = firstPage.map { it.toRecentCall() }
+            allRecents.addAll(mergeCalls(mappedData))
             page = 1
             updateMetrics()
         }
+    }
+
+    private fun mergeCalls(calls: List<RecentCall>): List<RecentCall> {
+        if (calls.isEmpty()) return emptyList()
+        val merged = mutableListOf<RecentCall>()
+        var current = calls.first()
+
+        for (i in 1 until calls.size) {
+            val next = calls[i]
+            if (current.number == next.number && current.type == next.type && isSameDay(current.rawDate, next.rawDate)) {
+                current = current.copy(count = current.count + next.count)
+            } else {
+                merged.add(current)
+                current = next
+            }
+        }
+        merged.add(current)
+        return merged
+    }
+
+    private fun isSameDay(date1: Long, date2: Long): Boolean {
+        val cal1 = java.util.Calendar.getInstance().apply { timeInMillis = date1 }
+        val cal2 = java.util.Calendar.getInstance().apply { timeInMillis = date2 }
+        return cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+               cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR)
     }
 
     private fun updateMetrics() {
@@ -88,7 +114,19 @@ class HomeViewModel @Inject constructor(
                 isEndReached.value = true
             } else {
                 val mappedData = nextPageData.map { it.toRecentCall() }
-                allRecents.addAll(mappedData)
+                val mergedMapped = mergeCalls(mappedData)
+                if (allRecents.isNotEmpty() && mergedMapped.isNotEmpty()) {
+                    val last = allRecents.last()
+                    val firstNew = mergedMapped.first()
+                    if (last.number == firstNew.number && last.type == firstNew.type && isSameDay(last.rawDate, firstNew.rawDate)) {
+                        allRecents[allRecents.size - 1] = last.copy(count = last.count + firstNew.count)
+                        allRecents.addAll(mergedMapped.drop(1))
+                    } else {
+                        allRecents.addAll(mergedMapped)
+                    }
+                } else {
+                    allRecents.addAll(mergedMapped)
+                }
                 page++
             }
             isLoading.value = false
@@ -142,7 +180,19 @@ class HomeViewModel @Inject constructor(
             isSearchEndReached.value = true
         } else {
             val mappedData = results.map { it.toRecentCall() }
-            searchResults.addAll(mappedData)
+            val mergedMapped = mergeCalls(mappedData)
+            if (searchResults.isNotEmpty() && mergedMapped.isNotEmpty()) {
+                val last = searchResults.last()
+                val firstNew = mergedMapped.first()
+                if (last.number == firstNew.number && last.type == firstNew.type && isSameDay(last.rawDate, firstNew.rawDate)) {
+                    searchResults[searchResults.size - 1] = last.copy(count = last.count + firstNew.count)
+                    searchResults.addAll(mergedMapped.drop(1))
+                } else {
+                    searchResults.addAll(mergedMapped)
+                }
+            } else {
+                searchResults.addAll(mergedMapped)
+            }
             searchPage++
         }
         isSearchLoading.value = false
@@ -157,7 +207,9 @@ class HomeViewModel @Inject constructor(
             type = mapCallType(type),
             isMissed = type == CallLog.Calls.MISSED_TYPE,
             photoUri = photoUri,
-            contactId = contactId
+            contactId = contactId,
+            count = 1,
+            rawDate = date
         )
     }
 

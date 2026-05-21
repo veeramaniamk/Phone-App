@@ -46,7 +46,9 @@ data class RecentCall(
     val type: CallType,
     val isMissed: Boolean = false,
     val photoUri: String? = null,
-    val contactId: String? = null
+    val contactId: String? = null,
+    val count: Int = 1,
+    val rawDate: Long = 0L
 )
 
 enum class CallType {

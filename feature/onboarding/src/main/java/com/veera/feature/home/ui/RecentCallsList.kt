@@ -111,24 +111,42 @@ fun RecentCallsList(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
                 ) {
-                    items(
-                        items = displayList,
-                        key = { it.id }
-                    ) { call ->
-                        RecentCallItem(
-                            modifier = Modifier.animateItem(
-                                placementSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            ),
-                            call = call,
-                            horizontalPadding = horizontalPadding,
-                            height = itemHeight,
-                            avatarSize = avatarSize,
-                            onClick = { onCallClick(call) },
-                            onCallIconClick = { onCallIconClick(call) }
-                        )
+                    val groupedCalls = displayList.groupBy { formatDateHeader(it.rawDate) }
+
+                    groupedCalls.forEach { (dateHeader, callsForDate) ->
+                        item(key = "header_$dateHeader") {
+                            Text(
+                                text = dateHeader,
+                                style = AppTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.background)
+                                    .padding(horizontal = horizontalPadding, vertical = 12.dp)
+                            )
+                        }
+                        
+                        items(
+                            items = callsForDate,
+                            key = { it.id }
+                        ) { call ->
+                            RecentCallItem(
+                                modifier = Modifier.animateItem(
+                                    placementSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                ),
+                                call = call,
+                                horizontalPadding = horizontalPadding,
+                                height = itemHeight,
+                                avatarSize = avatarSize,
+                                onClick = { onCallClick(call) },
+                                onCallIconClick = { onCallIconClick(call) }
+                            )
+                        }
                     }
 
                     if (isLoading) {
@@ -220,4 +238,23 @@ fun PermissionRequiredView(onRequestPermission: () -> Unit) {
             )
         }
     }
+}
+
+fun formatDateHeader(timestamp: Long): String {
+    val cal = java.util.Calendar.getInstance()
+    cal.timeInMillis = System.currentTimeMillis()
+    val todayYear = cal.get(java.util.Calendar.YEAR)
+    val todayDay = cal.get(java.util.Calendar.DAY_OF_YEAR)
+
+    cal.timeInMillis = timestamp
+    val callYear = cal.get(java.util.Calendar.YEAR)
+    val callDay = cal.get(java.util.Calendar.DAY_OF_YEAR)
+
+    if (todayYear == callYear) {
+        if (todayDay == callDay) return "Today"
+        if (todayDay - 1 == callDay) return "Yesterday"
+    }
+    
+    val sdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+    return sdf.format(java.util.Date(timestamp))
 }

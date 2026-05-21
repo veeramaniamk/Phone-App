@@ -120,8 +120,9 @@ import com.veera.core.theme.AppTheme
                     tint = if (call.isMissed) AppTheme.colors.Error else AppTheme.colors.Tertiary
                 )
                 Spacer(modifier = Modifier.width(6.dp))
+                val countText = if (call.count > 1) " (${call.count})" else ""
                 Text(
-                    text = "${call.type.name.lowercase().replaceFirstChar { it.uppercase() }} • ${call.timestamp}",
+                    text = "${call.type.name.lowercase().replaceFirstChar { it.uppercase() }}$countText • ${call.timestamp}",
                     style = AppTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
